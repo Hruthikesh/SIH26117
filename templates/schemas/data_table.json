@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "title": {
+      "default": "Data",
+      "title": "Title",
+      "type": "string"
+    },
+    "sheets": {
+      "items": {
+        "properties": {
+          "caption": {
+            "default": "",
+            "title": "Caption",
+            "type": "string"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ],
+        "title": "TableSpec",
+        "type": "object"
+      },
+      "title": "Sheets",
+      "type": "array"
+    }
+  },
+  "title": "DataTable",
+  "type": "object"
+}

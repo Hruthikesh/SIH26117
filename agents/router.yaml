@@ -1,0 +1,8 @@
+name: router
+description: Internal — cheap classification calls (difficulty, doc types, injection screening).
+model_role: router
+tools: []
+system_prompt: prompts/router.md
+fewshots: []
+verification: {rubric: rubrics/default.md, threshold: 80}
+decoding: {temperature: 0.0, reasoning_effort: low}

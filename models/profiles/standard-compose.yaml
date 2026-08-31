@@ -1,0 +1,39 @@
+# standard, docker-compose topology: engines run as sibling containers; the supervisor
+# ATTACHES to them via url (no local spawn). Selected by YANTRA_PROFILE_FILE in compose.
+name: standard
+description: Single 80 GB (or 2x48 GB) GPU; engines as compose services.
+db: sqlite
+
+config_defaults:
+  context: {executor: 48000, planner: 48000, reviewer: 32000, utility: 8000}
+  execution: {max_parallel_tasks: 3}
+  knowledge: {ingest_workers: 2}
+  budgets: {max_tokens: 400000, max_seconds: 3600}
+  sandbox: {backend: docker, max_seconds: 180, max_rss_mb: 8192}
+
+engines:
+  - id: brain
+    kind: vllm
+    model: qwen3.8-27b-fp8
+    url: http://vllm-brain:8000
+  - id: utility
+    kind: vllm
+    model: qwen3.5-9b-fp8
+    url: http://vllm-utility:8000
+  - id: ocr
+    kind: vllm
+    model: paddleocr-vl-1.6
+    url: http://vllm-ocr:8000
+  - id: embed
+    kind: pooling
+    models: [qwen3-embedding-0.6b, qwen3-reranker-0.6b, qwen3-vl-embedding-2b, qwen3-vl-reranker-2b]
+    device: cpu
+
+ingestion:
+  workers: 2
+  expected_pages_per_s: [1, 3]
+
+concurrency:
+  interactive_sessions: 8
+
+measured: {}

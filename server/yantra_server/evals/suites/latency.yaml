@@ -1,0 +1,6 @@
+# Latency suite (SPEC §20.3 metrics): TTFT, p50/p95 round-trip, tokens/s over N gateway calls.
+# On the mock profile these are engine-scheduling numbers, not hardware timings (clearly noted
+# in the report); re-run on the tiny/standard profile for real TTFT and tok/s.
+kind: latency
+samples: 20
+role: utility

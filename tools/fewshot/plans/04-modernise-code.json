@@ -1,0 +1,93 @@
+{
+  "goal": "Modernise a legacy script: fix bugs, add types and tests",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Rewrite with tests",
+        "intent": "read the legacy source; write the fixed module + tests; keep behaviour except the documented bug",
+        "role": "coder",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "module.py",
+            "type": "code"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "module.py"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Prove it in the sandbox",
+        "intent": "run_tests; on failure fix and re-run",
+        "role": "coder",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "tests_pass",
+            "cmd": "pytest -q"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t3",
+        "title": "Change summary",
+        "intent": "render_document code_change_summary with rationale, tests, risks",
+        "role": "writer",
+        "inputs": [
+          "t2"
+        ],
+        "outputs": [
+          {
+            "name": "change_summary.md",
+            "type": "md"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "change_summary.md"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ],
+      [
+        "t2",
+        "t3"
+      ]
+    ],
+    "rationale": "fix, verify, document",
+    "version": 1
+  }
+}

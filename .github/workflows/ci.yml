@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev
+      - run: uv run ruff check server scripts
+      - run: uv run ruff format --check server scripts
+      - run: uv run mypy
+      - run: uv run pytest -q -m "not e2e"
+
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@11.22.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter yantra-tui build
+      - run: pnpm --filter yantra-tui typecheck
+      - run: pnpm --filter yantra-tui lint
+      - run: pnpm --filter yantra-tui test
+
+  seal:
+    # The entire suite must pass with no network namespace at all (SPEC §14.5).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --dev
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - run: bash scripts/ci_seal.sh

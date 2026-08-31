@@ -1,0 +1,1 @@
+{"situation": "Verify your change did not break anything.", "call": {"tool": "run_tests", "args": {"cmd": "auto"}}, "why": "auto detects pytest/npm; acceptance checks re-run this anyway — run it early.", "anti_pattern": "Declaring code fixed without a test run."}

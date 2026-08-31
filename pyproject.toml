@@ -1,0 +1,117 @@
+[project]
+name = "yantra-server"
+version = "1.0.0"
+description = "YANTRA — sovereign on-premise agentic AI workbench (server, harness, knowledge plane, CLI)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0.32",
+    "alembic>=1.13",
+    "typer>=0.12",
+    "httpx>=0.27",
+    "pyyaml>=6.0",
+    "opentelemetry-api>=1.26",
+    "opentelemetry-sdk>=1.26",
+    "jsonschema>=4.22",
+    "websockets>=12.0",
+    "cryptography>=43.0",
+]
+
+[project.optional-dependencies]
+# Knowledge plane (M6+). Kept optional so the core installs on minimal machines.
+knowledge = [
+    "qdrant-client>=1.12",
+    "tantivy>=0.22",
+    "pymupdf>=1.24",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "python-pptx>=1.0",
+    "rapidfuzz>=3.9",
+]
+# Vision / P&ID pipeline (M7+).
+vision = [
+    "opencv-python-headless>=4.10",
+    "numpy>=1.26",
+    "networkx>=3.3",
+    "shapely>=2.0",
+    "pillow>=10.4",
+]
+# Rendering extras (M7+).
+render = [
+    "docxtpl>=0.18",
+    "matplotlib>=3.9",
+    "reportlab>=4.2",
+]
+# In-process embedding fallback (PoolingWorker); heavy, optional.
+pooling = ["sentence-transformers>=3.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.23",
+    "hypothesis>=6.108",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML",
+    "types-jsonschema",
+]
+
+[project.scripts]
+yantra = "yantra_server.cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["server/yantra_server"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["server"]
+extend-exclude = ["server/yantra_server/db/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
+ignore = ["E501", "SIM108", "B008"]  # E501: formatter owns line length; B008: typer defaults
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint.per-file-ignores]
+"server/tests/**" = ["ASYNC"]  # tests may block (subprocess waits, sleeps in polls)
+# render/diagram tools shell out to soffice/dot and touch paths; the calls are short and
+# the work is inherently blocking (document generation), so the async-purity lints don't fit.
+"server/yantra_server/tools/builtin/render.py" = ["ASYNC221", "ASYNC240", "ASYNC230"]
+"server/yantra_server/render/service.py" = ["ASYNC221"]
+"server/yantra_server/vision/ocr.py" = ["ASYNC240"]  # one-shot read of an image to base64
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+mypy_path = "server"
+packages = ["yantra_server"]
+warn_unreachable = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tantivy.*", "fitz.*", "pymupdf.*", "cv2.*", "docxtpl.*", "pptx.*", "docx.*", "openpyxl.*", "shapely.*", "networkx.*", "sentence_transformers.*", "qdrant_client.*", "tokenizers.*", "rapidfuzz.*", "reportlab.*", "matplotlib.*", "PIL.*", "rfdetr.*", "rapidocr_onnxruntime.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["server/tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: uses multiple subsystems together (mock engine)",
+    "e2e: needs tiny real models or external binaries; skipped when absent",
+    "seal: zero-egress verification tests",
+    "slow: long-running",
+]
+filterwarnings = ["ignore::DeprecationWarning:websockets.*"]

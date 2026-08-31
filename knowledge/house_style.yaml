@@ -1,0 +1,7 @@
+# House style for deliverables (SPEC §5.4, §12).
+report:
+  sections_order: [executive_summary, background, findings, analysis, recommendations, appendix]
+  tone: "plain, specific, engineering-review voice; no marketing language"
+  numbers: "every number cites a chunk or a computed artifact"
+  safety: "safety-relevant items phrased as 'review required', never as operating instructions"
+confidentiality_banner: "CONFIDENTIAL - Engineering review required before use"

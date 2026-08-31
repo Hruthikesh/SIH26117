@@ -1,0 +1,8 @@
+name: drawing_engineer
+description: Reads P&IDs, PFDs and datasheets; extracts equipment, instruments, lines and control loops; checks design rules.
+model_role: vision
+tools: [read_file, list_dir, search_knowledge, view_image, crop_image, zoom_grid, ocr_image, pid_analyze, pid_rules_check, annotate_image, write_file, read_artifact, delegate, ask_user]
+system_prompt: prompts/drawing_engineer.md
+fewshots: [tools/fewshot/pid_analyze.jsonl]
+verification: {rubric: rubrics/drawing_engineer.md, threshold: 85}
+decoding: {temperature: 0.0, reasoning_effort: medium}

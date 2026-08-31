@@ -1,0 +1,67 @@
+{
+  "goal": "Review P&ID 3-1201 Rev C against pump and PSV checklists; annotated drawing, lists, findings report",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Analyse the sheet",
+        "intent": "pid_analyze; export equipment/instrument/line lists",
+        "role": "drawing_engineer",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "lists.xlsx",
+            "type": "xlsx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "lists.xlsx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Rules and findings",
+        "intent": "pid_rules_check; annotate_image overlay PNG; render_document pid_review DOCX",
+        "role": "drawing_engineer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "findings.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "findings.docx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ]
+    ],
+    "rationale": "graph, then rules and deliverables",
+    "version": 1
+  }
+}

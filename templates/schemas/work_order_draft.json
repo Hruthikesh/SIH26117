@@ -1,0 +1,55 @@
+{
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "equipment": {
+      "title": "Equipment",
+      "type": "string"
+    },
+    "priority": {
+      "default": "medium",
+      "enum": [
+        "emergency",
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "parts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parts",
+      "type": "array"
+    },
+    "safety_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Notes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "title",
+    "equipment",
+    "description"
+  ],
+  "title": "WorkOrderDraft",
+  "type": "object"
+}

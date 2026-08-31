@@ -1,0 +1,87 @@
+# YANTRA configuration.
+# Copy to ./yantra.yaml or ~/.yantra/yantra.yaml and edit.
+# Precedence: CLI flags > YANTRA_* environment variables > this file > profile defaults.
+# Env override syntax: YANTRA_<SECTION>__<KEY>, e.g. YANTRA_SERVER__PORT=7332.
+
+# Hardware profile: lite (1×24 GB GPU) | standard (1×80 GB) | refinery (4–8×80 GB).
+# Profile defaults live in models/profiles/<name>.yaml and fill every unset value below.
+profile: lite
+
+paths:
+  data_dir: ~/.yantra              # DB, artifact store, logs, memory
+  models_dir: ~/.yantra/models     # local model weights (never a hub id)
+  workspace_roots: []              # directories sessions may open; empty = any user path
+
+server:
+  host: 127.0.0.1                  # bind 0.0.0.0 only deliberately, with admin_token set
+  port: 7331
+  admin_token: null                # generated on first run when binding beyond loopback
+
+gateway:
+  request_timeout_s: 300
+  max_retries: 3
+  cache_ttl_s: 86400               # semantic response cache (temperature-0 calls only)
+  queue_size: 256
+  registry_file: models/registry.yaml
+  routing_file: models/routing.yaml
+
+budgets:                           # per-run defaults; override per session with /budget
+  max_tokens: 400000
+  max_seconds: 3600
+  max_tool_calls: 400
+  max_sandbox_cpu_s: 1200
+  warn_ratio: 0.8
+
+context:                          # per-role token budgets (deliberately far below native windows)
+  executor: 24000
+  planner: 32000
+  reviewer: 24000
+  utility: 8000
+
+permissions:                       # evaluated in order; first match wins
+  - {tool: "delete_file", decision: deny}
+  - {tool: "bash", cmd_regex: "rm\\s+-rf|mkfs|dd\\s+if=|shutdown|reboot|:\\(\\)\\{", decision: deny}
+  - {tool: "write_file", path_glob: "workspace/**", decision: ask, modes: [ask]}
+  - {tool: "write_file", path_glob: "workspace/**", decision: allow, modes: [auto]}
+  - {tool: "*", side_effects: "read", decision: allow}
+  - {tool: "*", decision: ask, modes: [ask]}
+  - {tool: "*", decision: allow, modes: [auto]}
+
+knowledge:
+  collections: []                  # populated by `yantra index add`
+  chunk_tokens_child: 400
+  chunk_tokens_parent: 1200
+  chunk_overlap_ratio: 0.15
+  fusion_weights: {lexical: 1.0, dense: 1.0, visual: 0.8}
+  rerank_depth: 60
+  final_k: 10
+  tag_patterns_file: knowledge/tag_patterns.yaml
+
+vision:
+  drawing_dpi: 200
+  text_dpi: 110
+  tile_size: 1280
+  tile_overlap: 0.15
+  max_images_per_call: 4
+
+render:
+  templates_dir: templates
+  libreoffice_path: null           # auto-detected; used for PDF export when present
+
+seal:
+  # Outbound connections outside this list raise SealViolation. Narrow to
+  # ["127.0.0.0/8", "::1/128"] for loopback-only sites.
+  allowlist: ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+  nftables_expected: false         # set true where scripts/seal_nftables.sh is installed
+
+observe:
+  retention_days: 365
+  redaction: "off"                  # off | hash | mask — applied to regulated fields in traces
+  otlp_endpoint: null              # optional org collector; must be inside seal.allowlist
+  cost_per_mtoken_inr: 450         # ₹/M-token proxy shown in the status line
+
+memory:
+  shared_team_scope: false
+
+evals:
+  suites_dir: server/yantra_server/evals/suites

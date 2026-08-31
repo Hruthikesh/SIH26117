@@ -1,0 +1,13 @@
+{
+  "name": "yantra-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "gen:types": "uv run python scripts/gen_types.py",
+    "tui:dev": "pnpm --filter yantra-tui dev",
+    "tui:build": "pnpm --filter yantra-tui build",
+    "tui:test": "pnpm --filter yantra-tui test",
+    "web:build": "pnpm --filter yantra-web build"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

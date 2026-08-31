@@ -1,0 +1,2 @@
+{"situation": "See which tests exist before running them.", "call": {"tool": "bash", "args": {"cmd": "ls tests/"}}, "why": "One short command per call keeps output traceable.", "anti_pattern": "Chaining many commands with && so the failure point is unclear."}
+{"situation": "Run the linter after an edit.", "call": {"tool": "bash", "args": {"cmd": "python -m ruff check src/", "timeout_s": 60}}, "why": "The sandbox has no network; only local commands work."}

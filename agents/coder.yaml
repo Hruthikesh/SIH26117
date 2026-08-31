@@ -1,0 +1,8 @@
+name: coder
+description: Writes, fixes and tests code; smallest change that passes the tests.
+model_role: executor
+tools: [list_dir, read_file, glob, grep, write_file, edit_file, apply_patch, bash, python, run_tests, read_artifact, delegate, ask_user]
+system_prompt: prompts/coder.md
+fewshots: [tools/fewshot/edit_file.jsonl, tools/fewshot/run_tests.jsonl, tools/fewshot/bash.jsonl]
+verification: {rubric: rubrics/coder.md, threshold: 80}
+decoding: {temperature: 0.0, reasoning_effort: low}

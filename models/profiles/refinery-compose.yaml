@@ -1,0 +1,43 @@
+# refinery, docker-compose topology: attach-mode engines + Postgres service.
+name: refinery
+description: Multi-GPU plant server via compose; BF16 brain, 120B heavy tier, Postgres.
+db: postgres
+
+config_defaults:
+  db: {url: "postgresql+psycopg://yantra:yantra@postgres:5432/yantra"}
+  context: {executor: 96000, planner: 64000, reviewer: 48000, utility: 8000}
+  execution: {max_parallel_tasks: 8}
+  knowledge: {ingest_workers: 8}
+  budgets: {max_tokens: 800000, max_seconds: 7200}
+  sandbox: {backend: docker, max_seconds: 300, max_rss_mb: 16384}
+
+engines:
+  - id: brain
+    kind: vllm
+    model: qwen3.8-27b
+    url: http://vllm-brain-r:8000
+  - id: heavy
+    kind: vllm
+    model: gpt-oss-120b
+    url: http://vllm-heavy:8000
+  - id: utility
+    kind: vllm
+    model: qwen3.5-9b-fp8
+    url: http://vllm-utility:8000
+  - id: ocr
+    kind: vllm
+    model: paddleocr-vl-1.6
+    url: http://vllm-ocr:8000
+  - id: embed
+    kind: pooling
+    models: [qwen3-embedding-4b, qwen3-reranker-0.6b, qwen3-vl-embedding-2b, qwen3-vl-reranker-2b]
+    device: cpu
+
+ingestion:
+  workers: 8
+  expected_pages_per_s: [5, 15]
+
+concurrency:
+  interactive_sessions: 24
+
+measured: {}

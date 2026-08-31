@@ -1,0 +1,42 @@
+# lite, docker-compose topology: Int4 brain on the GPU, llama.cpp CPU sidecar containers
+# for utility/embed/rerank. No resident OCR model (24 GB card is full) — ingestion uses the
+# CPU OCR fallback; point-in-time OCR quality improves on standard/refinery.
+name: lite
+description: Single 24 GB GPU via compose; CPU sidecars for small models.
+db: sqlite
+
+config_defaults:
+  context: {executor: 24000, planner: 32000, reviewer: 24000, utility: 8000}
+  execution: {max_parallel_tasks: 1}
+  knowledge: {ingest_workers: 1}
+  budgets: {max_tokens: 300000, max_seconds: 3600}
+  sandbox: {backend: docker, max_seconds: 120, max_rss_mb: 4096}
+
+engines:
+  - id: brain
+    kind: vllm
+    model: qwen3.8-27b-int4
+    url: http://vllm-brain-lite:8000
+  - id: utility
+    kind: llamacpp
+    model: qwen3.5-4b-gguf
+    url: http://llama-utility:8000
+  - id: embed
+    kind: llamacpp
+    model: qwen3-embedding-0.6b-gguf
+    mode: embedding
+    url: http://llama-embed:8000
+  - id: rerank
+    kind: llamacpp
+    model: qwen3-reranker-0.6b-gguf
+    mode: reranking
+    url: http://llama-rerank:8000
+
+ingestion:
+  workers: 1
+  expected_pages_per_s: [0.5, 2]
+
+concurrency:
+  interactive_sessions: 2
+
+measured: {}

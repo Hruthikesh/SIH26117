@@ -1,0 +1,5 @@
+packages:
+  - tui
+  - web
+allowBuilds:
+  esbuild: true

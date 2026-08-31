@@ -1,0 +1,2 @@
+{"situation": "Find every mention of pump P-3101A across the workspace.", "call": {"tool": "grep", "args": {"pattern": "P-3101A", "regex": false}}, "why": "regex=false for exact equipment tags — hyphens are regex metacharacters.", "anti_pattern": "Using a fuzzy search when the tag is known exactly."}
+{"situation": "Locate function definitions touching 'seal_flush'.", "call": {"tool": "grep", "args": {"pattern": "def .*seal_flush", "path": "src", "context": 2}}, "why": "Scope by path and add context lines to see signatures."}

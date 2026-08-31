@@ -1,0 +1,40 @@
+# ISA-5.1 letter tables (SPEC §11.4). The parser (vision/pid/isa51.py) ships these defaults
+# baked in; this file lets an operator extend or override them without code changes.
+first_letters:
+  A: analysis
+  B: burner/combustion
+  C: conductivity
+  D: density
+  E: voltage
+  F: flow
+  G: gauging/position
+  H: hand
+  I: current
+  J: power
+  K: time/schedule
+  L: level
+  M: moisture
+  P: pressure
+  Q: quantity
+  R: radiation
+  S: speed/frequency
+  T: temperature
+  U: multivariable
+  V: vibration
+  W: weight/force
+  Y: event/state
+  Z: position/dimension
+succeeding_letters:
+  A: alarm
+  C: controller
+  E: element/sensor
+  G: glass/gauge
+  H: high
+  I: indicator
+  L: low/light
+  R: recorder
+  S: switch/safety
+  T: transmitter
+  V: valve/damper
+  Y: relay/compute
+  Z: driver/actuator

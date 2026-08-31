@@ -1,0 +1,219 @@
+# YANTRA docker-compose (SPEC §21). Profiles: lite | standard | refinery.
+#
+#   docker compose --profile standard up -d
+#
+# Topology: every service sits on the `sealnet` network with `internal: true` (no route to
+# anywhere); only `server` also joins `edge` to publish 127.0.0.1:7331 to the host. Engine
+# containers are attached (not spawned) by the server's supervisor via the *-compose profile
+# files (YANTRA_PROFILE_FILE), which carry `url:` targets instead of launch commands.
+#
+# Deviations from the spec's service list, by design (see ADR 0011):
+#  - `pooling` and ingest workers run in-process in the server (PoolingWorker + async ingest
+#    pool); a separate container would add a network hop for no isolation gain.
+#  - `web-build` is a Dockerfile stage, not a runtime service.
+#  - lite runs utility/embed/rerank as llama.cpp CPU containers; OCR falls back to the CPU
+#    path (RapidOCR) because a 24 GB card fully loaded with the Int4 brain has no room for
+#    a resident OCR model.
+#
+# Images are pinned by digest at bundle time (scripts/bundle.sh rewrites `image:` lines into
+# bundle/docker-compose.yml); tags here are for connected dev machines.
+
+name: yantra
+
+networks:
+  sealnet:
+    internal: true
+  edge: {}
+
+volumes:
+  yantra-data: {}
+  qdrant-data: {}
+  pg-data: {}
+
+x-vllm-base: &vllm-base
+  image: vllm/vllm-openai:v0.11.0
+  restart: unless-stopped
+  networks: [sealnet]
+  volumes:
+    - ${YANTRA_MODELS_DIR:-./models/weights}:/models:ro
+  ipc: host
+  healthcheck:
+    test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)\""]
+    interval: 15s
+    timeout: 5s
+    start_period: 300s
+    retries: 10
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+x-llamacpp-base: &llamacpp-base
+  image: ghcr.io/ggml-org/llama.cpp:server
+  restart: unless-stopped
+  networks: [sealnet]
+  volumes:
+    - ${YANTRA_MODELS_DIR:-./models/weights}:/models:ro
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health || exit 1"]
+    interval: 15s
+    timeout: 5s
+    start_period: 60s
+    retries: 5
+
+services:
+  server:
+    build: .
+    image: yantra-server:latest
+    restart: unless-stopped
+    profiles: [lite, standard, refinery]
+    networks: [sealnet, edge]
+    ports:
+      - "127.0.0.1:7331:7331"
+    environment:
+      YANTRA_PROFILE: ${YANTRA_PROFILE:-standard}
+      YANTRA_PROFILE_FILE: /opt/yantra/models/profiles/${YANTRA_PROFILE:-standard}-compose.yaml
+      YANTRA_SEALED: "1"
+      YANTRA_KNOWLEDGE__QDRANT_LOCATION: "server:http://qdrant:6333"
+    volumes:
+      - ${YANTRA_MODELS_DIR:-./models/weights}:/models:ro
+      - yantra-data:/data
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    mem_limit: 16g
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    profiles: [lite, standard, refinery]
+    networks: [sealnet]
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 8g
+
+  # ---------------------------------------------------------------- standard + refinery
+  vllm-brain:
+    <<: *vllm-base
+    profiles: [standard]
+    command: >
+      --model /models/Qwen3.8-27B-FP8 --served-model-name qwen3.8-27b-fp8
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization 0.55 --max-model-len 131072
+      --kv-cache-dtype fp8 --enable-prefix-caching
+      --structured-outputs-config '{"backend":"xgrammar"}'
+      --reasoning-parser qwen3 --tool-call-parser qwen3_coder
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+
+  vllm-utility:
+    <<: *vllm-base
+    profiles: [standard, refinery]
+    command: >
+      --model /models/Qwen3.5-9B-FP8 --served-model-name qwen3.5-9b-fp8
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization 0.15 --max-model-len 65536
+      --structured-outputs-config '{"backend":"xgrammar"}'
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+
+  vllm-ocr:
+    <<: *vllm-base
+    profiles: [standard, refinery]
+    command: >
+      --model /models/PaddleOCR-VL-1.6 --served-model-name paddleocr-vl-1.6
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization 0.05
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+
+  # ---------------------------------------------------------------- refinery only
+  vllm-brain-r:
+    <<: *vllm-base
+    profiles: [refinery]
+    command: >
+      --model /models/Qwen3.8-27B --served-model-name qwen3.8-27b
+      --host 0.0.0.0 --port 8000
+      --tensor-parallel-size 2
+      --gpu-memory-utilization 0.92 --max-model-len 131072 --enable-prefix-caching
+      --structured-outputs-config '{"backend":"xgrammar"}'
+      --reasoning-parser qwen3 --tool-call-parser qwen3_coder
+    environment:
+      CUDA_VISIBLE_DEVICES: "0,1"
+
+  vllm-heavy:
+    <<: *vllm-base
+    profiles: [refinery]
+    command: >
+      --model /models/gpt-oss-120b --served-model-name gpt-oss-120b
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization 0.95 --max-model-len 131072
+      --structured-outputs-config '{"backend":"xgrammar"}'
+    environment:
+      CUDA_VISIBLE_DEVICES: "2"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    profiles: [refinery]
+    networks: [sealnet]
+    environment:
+      POSTGRES_USER: yantra
+      POSTGRES_PASSWORD: yantra
+      POSTGRES_DB: yantra
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yantra"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 4g
+
+  # ---------------------------------------------------------------- lite (CPU sidecars)
+  vllm-brain-lite:
+    <<: *vllm-base
+    profiles: [lite]
+    command: >
+      --model /models/Qwen3.8-27B-GPTQ-Int4 --served-model-name qwen3.8-27b-int4
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization 0.88 --max-model-len 32768
+      --kv-cache-dtype fp8 --enable-prefix-caching
+      --structured-outputs-config '{"backend":"xgrammar"}'
+      --reasoning-parser qwen3 --tool-call-parser qwen3_coder
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+
+  llama-utility:
+    <<: *llamacpp-base
+    profiles: [lite]
+    command: >
+      -m /models/Qwen3.5-4B-Q4_K_M.gguf --alias qwen3.5-4b-gguf
+      --host 0.0.0.0 --port 8000 -c 16384 -t 8
+    mem_limit: 8g
+
+  llama-embed:
+    <<: *llamacpp-base
+    profiles: [lite]
+    command: >
+      -m /models/Qwen3-Embedding-0.6B-Q8_0.gguf --alias qwen3-embedding-0.6b-gguf
+      --host 0.0.0.0 --port 8000 --embedding
+    mem_limit: 4g
+
+  llama-rerank:
+    <<: *llamacpp-base
+    profiles: [lite]
+    command: >
+      -m /models/Qwen3-Reranker-0.6B-Q8_0.gguf --alias qwen3-reranker-0.6b-gguf
+      --host 0.0.0.0 --port 8000 --reranking
+    mem_limit: 4g

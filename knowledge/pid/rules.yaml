@@ -1,0 +1,59 @@
+# P&ID design-rule pack (SPEC §11.2 step 7). Predicates over the PIDGraph; each yields a
+# finding with severity, the elements involved, an explanation and a standard reference.
+# Clause numbers are left to the operator via TODO-by-operator markers (per SPEC §11.4).
+rules:
+  - id: pump_discharge_check_valve
+    severity: high
+    applies_to: pump
+    predicate: discharge_has_check_valve
+    explanation: "Pump discharge should have a check valve to prevent reverse flow."
+    standard: "API 610 (clause TODO-by-operator)"
+
+  - id: pd_pump_relief
+    severity: high
+    applies_to: positive_displacement_pump
+    predicate: discharge_has_relief
+    explanation: "Positive-displacement pump discharge must have a relief device (dead-head protection)."
+    standard: "API 520/521 (clause TODO-by-operator)"
+
+  - id: control_valve_bypass
+    severity: medium
+    applies_to: control_valve
+    predicate: has_block_and_bypass
+    explanation: "Control valve should have upstream/downstream block valves and a bypass, unless documented as no-bypass by service."
+    standard: "Plant piping standard (clause TODO-by-operator)"
+
+  - id: psv_on_vessel
+    severity: high
+    applies_to: vessel
+    predicate: vessel_has_relief
+    explanation: "Every pressure vessel must have a relief device (PSV)."
+    standard: "API 521 / ASME VIII (clause TODO-by-operator)"
+
+  - id: psv_isolation_car_seal
+    severity: medium
+    applies_to: relief_valve
+    predicate: psv_isolation_car_sealed
+    explanation: "PSV inlet/outlet isolation valves, where present, should be car-sealed open (CSO)."
+    standard: "API 520 Part II (clause TODO-by-operator)"
+
+  - id: offpage_connectors_paired
+    severity: low
+    applies_to: off_page_connector
+    predicate: connector_paired
+    explanation: "Off-page connectors should be paired with a matching continuation reference."
+    standard: "Drawing standard (clause TODO-by-operator)"
+
+  - id: equipment_in_list
+    severity: low
+    applies_to: equipment
+    predicate: equipment_in_reference_list
+    explanation: "Every equipment tag on the drawing should appear in the equipment list, when one is provided."
+    standard: "Project document control"
+
+  - id: loop_tag_consistency
+    severity: low
+    applies_to: instrument
+    predicate: loop_numbering_consistent
+    explanation: "Instruments in one control loop should share the loop number (e.g. FT/FIC/FCV-3201)."
+    standard: "ISA-5.1 (clause TODO-by-operator)"

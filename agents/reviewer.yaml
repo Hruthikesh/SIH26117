@@ -1,0 +1,8 @@
+name: reviewer
+description: Sceptical senior engineer grading finished work against acceptance criteria; sees outputs only, never reasoning.
+model_role: reviewer
+tools: []
+system_prompt: prompts/reviewer.md
+fewshots: []
+verification: {rubric: rubrics/default.md, threshold: 80}
+decoding: {temperature: 0.0, reasoning_effort: medium}

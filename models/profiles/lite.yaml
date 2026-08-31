@@ -1,0 +1,53 @@
+# lite: one 24 GB GPU (RTX 3090/4090/5090, L4-24), 64 GB RAM, NVMe.
+name: lite
+description: Single 24 GB consumer GPU; brain quantised to Int4 at 32K context.
+db: sqlite
+
+config_defaults:
+  context: {executor: 24000, planner: 32000, reviewer: 24000, utility: 8000}
+  execution: {max_parallel_tasks: 1}
+  knowledge: {ingest_workers: 1}
+  budgets: {max_tokens: 300000, max_seconds: 3600}
+  sandbox: {max_seconds: 120, max_rss_mb: 4096}
+
+engines:
+  - id: brain
+    kind: vllm
+    model: qwen3.8-27b-int4
+    device: cuda:0
+    gpu_memory_utilization: 0.88
+    max_model_len: 32768
+    kv_cache_dtype: fp8
+    enable_prefix_caching: true
+  - id: utility
+    kind: llamacpp
+    model: qwen3.5-4b-gguf
+    device: cpu
+    threads: 8
+    ctx: 16384
+  - id: embed
+    kind: llamacpp
+    model: qwen3-embedding-0.6b-gguf
+    device: cpu
+    mode: embedding
+  - id: rerank
+    kind: llamacpp
+    model: qwen3-reranker-0.6b-gguf
+    device: cpu
+    mode: reranking
+  # PaddleOCR-VL shares the brain GPU via supervisor swap when the brain is idle.
+  - id: ocr
+    kind: vllm
+    model: paddleocr-vl-1.6
+    device: cuda:0
+    gpu_memory_utilization: 0.10
+    on_demand: true
+
+ingestion:
+  workers: 1
+  expected_pages_per_s: [0.3, 1.0]
+
+concurrency:
+  interactive_sessions: 2
+
+measured: {}

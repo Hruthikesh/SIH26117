@@ -1,0 +1,63 @@
+{
+  "goal": "Consolidate the 2025 inspection reports into a register; flag overdue; draft follow-up emails",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Fan out",
+        "intent": "delegate one analyst child per report batch",
+        "role": "analyst",
+        "inputs": [],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "rubric",
+            "rubric_id": "default",
+            "min_score": 80
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Merge and draft",
+        "intent": "render_document data_table XLSX register; email_draft per overdue item",
+        "role": "writer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "inspection_register.xlsx",
+            "type": "xlsx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "inspection_register.xlsx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ]
+    ],
+    "rationale": "delegate per report, merge once, then draft",
+    "version": 1
+  }
+}

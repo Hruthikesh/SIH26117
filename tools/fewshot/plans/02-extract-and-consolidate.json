@@ -1,0 +1,63 @@
+{
+  "goal": "Consolidate many similar documents into one register and follow-ups",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Fan out extraction",
+        "intent": "delegate one child per document batch (analyst); each child returns rows",
+        "role": "analyst",
+        "inputs": [],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "rubric",
+            "rubric_id": "default",
+            "min_score": 80
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Merge and render",
+        "intent": "merge rows; render_document data_table XLSX; email_draft for flagged items",
+        "role": "writer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "register.xlsx",
+            "type": "xlsx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "register.xlsx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ]
+    ],
+    "rationale": "delegate per source, merge once",
+    "version": 1
+  }
+}

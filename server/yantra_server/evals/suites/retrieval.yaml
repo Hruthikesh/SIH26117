@@ -1,0 +1,13 @@
+# Retrieval suite (SPEC §10.6): recall@k and MRR against the generated corpus truth set.
+#
+# Runs REAL on any profile: lexical retrieval (Tantivy) is model-free and fully meaningful
+# here; dense/hybrid use the engine's embeddings, so on the mock profile the hybrid numbers
+# reflect hash-based pseudo-embeddings — the lexical column is the one to read on this box,
+# and hybrid is re-measured on a real embedding model. Fusion weights are tuned from these
+# numbers (see docs/adr/0009-retrieval-fusion-weights.md).
+kind: retrieval
+collection: eval_retrieval
+docs: corpus/generated/small/docs
+truth: corpus/generated/small/truth.json
+modes: [lexical, hybrid, dense]
+min_recall_at_10: 0.6

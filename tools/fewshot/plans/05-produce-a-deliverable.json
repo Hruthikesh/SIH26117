@@ -1,0 +1,40 @@
+{
+  "goal": "Produce a single structured deliverable from known inputs",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Draft and render",
+        "intent": "assemble the JSON for the schema; validate_deliverable; render_document to the requested format",
+        "role": "writer",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "out.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "out.docx"
+          },
+          {
+            "kind": "schema_valid",
+            "schema_id": "report",
+            "path": "out.json"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [],
+    "rationale": "one task; schema-validated before render",
+    "version": 1
+  }
+}

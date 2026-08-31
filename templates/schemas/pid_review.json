@@ -1,0 +1,115 @@
+{
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "drawing_number": {
+      "default": "",
+      "title": "Drawing Number",
+      "type": "string"
+    },
+    "revision": {
+      "default": "",
+      "title": "Revision",
+      "type": "string"
+    },
+    "equipment_count": {
+      "default": 0,
+      "title": "Equipment Count",
+      "type": "integer"
+    },
+    "instrument_count": {
+      "default": 0,
+      "title": "Instrument Count",
+      "type": "integer"
+    },
+    "coverage": {
+      "default": 1.0,
+      "title": "Coverage",
+      "type": "number"
+    },
+    "findings": {
+      "items": {
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "severity": {
+            "default": "info",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "evidence": {
+            "default": "",
+            "title": "Evidence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "overlay_figure": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Overlay Figure"
+    },
+    "appendix": {
+      "properties": {
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "unverified_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unverified Claims",
+          "type": "array"
+        }
+      },
+      "title": "Appendix",
+      "type": "object"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "title": "PIDReview",
+  "type": "object"
+}

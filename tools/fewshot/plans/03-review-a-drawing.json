@@ -1,0 +1,67 @@
+{
+  "goal": "Review a P&ID against design rule checklists",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Extract the graph",
+        "intent": "pid_analyze the sheet; capture equipment/instrument/line lists and coverage",
+        "role": "drawing_engineer",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "lists.xlsx",
+            "type": "xlsx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "lists.xlsx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Run the rules and annotate",
+        "intent": "pid_rules_check with the graph_ref; annotate_image overlay; findings to pid_review DOCX",
+        "role": "drawing_engineer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "findings.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "findings.docx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ]
+    ],
+    "rationale": "graph first, then rules over the graph",
+    "version": 1
+  }
+}

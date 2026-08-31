@@ -1,0 +1,1 @@
+{"situation": "Create a new module the plan calls for.", "call": {"tool": "write_file", "args": {"path": "src/tank_gauging.py", "content": "\"\"\"Tank gauging calculations.\"\"\"\n..."}}, "why": "New files are written whole; parents are created automatically.", "anti_pattern": "Overwriting an existing file without overwrite=true (and without reading it first)."}

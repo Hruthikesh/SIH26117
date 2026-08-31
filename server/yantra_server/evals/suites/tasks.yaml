@@ -1,0 +1,18 @@
+# Task suite (SPEC §20.3): the demo scenarios as eval cases.
+#
+# Scenarios 2-5 run the REAL pipeline end-to-end. On a GPU host the brain model drives them
+# from the goal text; on the GPU-less profile the model's reasoning is scripted (see
+# evals/scenarios.py) but every tool call — corpus search, chart/report/spreadsheet render,
+# sandbox code execution, delegate fan-out — is real, and the deliverables checked below are
+# really produced. The 30-smaller-task battery (analyst/coder/drawing/writer) and citation-
+# precision scoring are gated on a real model; run `yantra eval run tasks --profile standard`
+# on a GPU host to score them. Scenario 1 (seal) → seal_smoke; 6 (extensibility) → demo.sh;
+# 7 (crash+resume) → resilience.
+kind: tasks
+corpus_docs: corpus/generated/small/docs
+collection: demo
+cases:
+  - script: s2_pump_reliability
+  - script: s3_pid_review
+  - script: s4_code_modernisation
+  - script: s5_consolidation

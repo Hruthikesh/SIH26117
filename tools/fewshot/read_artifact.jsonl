@@ -1,0 +1,1 @@
+{"situation": "A tool result said '[full output: artifact ab12…, use read_artifact]'.", "call": {"tool": "read_artifact", "args": {"artifact_id": "ab12cd34ef56ab12cd34ef56ab12cd34", "offset": 60}}, "why": "Page through stored output instead of re-running the tool."}

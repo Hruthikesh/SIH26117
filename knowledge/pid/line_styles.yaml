@@ -1,0 +1,8 @@
+# Line-style classification by run-length pattern (SPEC §11.2 step 5).
+line_styles:
+  - {name: process, pattern: solid, description: "main process piping"}
+  - {name: instrument_signal, pattern: dashed, description: "electrical/electronic signal"}
+  - {name: pneumatic, pattern: double_slash, description: "pneumatic signal"}
+  - {name: electrical, pattern: dash_dot, description: "electrical power/wiring"}
+  - {name: capillary, pattern: crossed, description: "filled-system capillary"}
+  - {name: software_link, pattern: dotted, description: "internal system/software link"}

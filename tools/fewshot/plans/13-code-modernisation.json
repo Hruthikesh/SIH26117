@@ -1,0 +1,93 @@
+{
+  "goal": "Convert legacy/tank_gauging.py into a tested typed module with a CLI; fix the unit bug; change summary",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Rewrite module",
+        "intent": "fix cm-to-m bug; type hints; argparse CLI",
+        "role": "coder",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "tank_gauging_fixed.py",
+            "type": "code"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "tank_gauging_fixed.py"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Sandbox tests",
+        "intent": "run the self-test; all assertions pass",
+        "role": "coder",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "tank_gauging_fixed.py"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t3",
+        "title": "Change summary",
+        "intent": "render_document code_change_summary",
+        "role": "writer",
+        "inputs": [
+          "t2"
+        ],
+        "outputs": [
+          {
+            "name": "change_summary.md",
+            "type": "md"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "change_summary.md"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ],
+      [
+        "t2",
+        "t3"
+      ]
+    ],
+    "rationale": "fix -> verify -> document",
+    "version": 1
+  }
+}

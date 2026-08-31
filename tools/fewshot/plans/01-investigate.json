@@ -1,0 +1,103 @@
+{
+  "goal": "Investigate <an equipment problem> using the indexed corpus and report with citations",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Gather evidence",
+        "intent": "search_knowledge for the tag/failure across logs, SOPs, manuals; get_chunk to expand; keep chunk ids for citations",
+        "role": "analyst",
+        "inputs": [],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "rubric",
+            "rubric_id": "default",
+            "min_score": 80
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "Quantify the trend",
+        "intent": "compute the metric (MTBF, rate) with python; render_chart to PNG",
+        "role": "data_engineer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "trend.png",
+            "type": "png"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "trend.png"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t3",
+        "title": "Write the cited report",
+        "intent": "render_document schema report; every claim carries [[c:chunk]] citations",
+        "role": "writer",
+        "inputs": [
+          "t1",
+          "t2"
+        ],
+        "outputs": [
+          {
+            "name": "report.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "report.docx"
+          },
+          {
+            "kind": "citation_coverage",
+            "min_ratio": 0.8
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ],
+      [
+        "t1",
+        "t3"
+      ],
+      [
+        "t2",
+        "t3"
+      ]
+    ],
+    "rationale": "evidence -> numbers -> cited deliverable",
+    "version": 1
+  }
+}

@@ -1,0 +1,16 @@
+# Equipment tag-prefix map (SPEC §11.2 step 3). Configurable per organisation.
+equipment:
+  P: pump
+  C: compressor
+  K: compressor
+  E: heat exchanger
+  V: vessel/drum
+  T: tower/column
+  D: drum
+  R: reactor
+  F: furnace/fired heater
+  TK: tank
+  MX: mixer
+  FL: filter
+  AG: agitator
+  EJ: ejector

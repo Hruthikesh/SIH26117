@@ -1,0 +1,61 @@
+{
+  "properties": {
+    "title": {
+      "default": "Equipment List",
+      "title": "Title",
+      "type": "string"
+    },
+    "equipment": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Equipment",
+      "type": "array"
+    },
+    "instruments": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Instruments",
+      "type": "array"
+    },
+    "lines": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Lines",
+      "type": "array"
+    },
+    "loops": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Loops",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Findings",
+      "type": "array"
+    }
+  },
+  "title": "EquipmentList",
+  "type": "object"
+}

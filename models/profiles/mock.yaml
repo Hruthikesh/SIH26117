@@ -1,0 +1,32 @@
+# mock: development/CI profile for machines with no GPU (SPEC §0 build-environment rule).
+# Not a deployment target: every model call is served by the deterministic MockEngine,
+# or by llama.cpp tiny models when YANTRA_TINY_MODELS_DIR is set.
+# NOTE: `yantra bench` rewrites this file to fill `measured:` and strips comments; the
+# design rationale lives in docs/adr/ (cache_ttl_s: 0 -> ADR 0010).
+name: mock
+description: GPU-less development and tests; deterministic MockEngine serving.
+db: sqlite
+
+config_defaults:
+  context: {executor: 8000, planner: 8000, reviewer: 8000, utility: 4000}
+  execution: {max_parallel_tasks: 2}
+  knowledge: {ingest_workers: 1}
+  budgets: {max_tokens: 200000, max_seconds: 900}
+  sandbox: {backend: local, max_seconds: 60, max_rss_mb: 2048}
+  # MockEngine replays stateful scripted sequences; the exact-match response cache would
+  # desync them (ADR 0010), so it is off on this profile.
+  gateway: {cache_ttl_s: 0}
+
+engines:
+  - id: mock
+    kind: mock
+
+ingestion:
+  workers: 1
+  expected_pages_per_s: [5, 50]
+
+concurrency:
+  interactive_sessions: 2
+
+measured:
+  ingest: {pages_per_s: 26.39, chunks_per_s: 27.04}

@@ -1,0 +1,25 @@
+# P&ID symbol catalogue (SPEC §11.4): class names + aliases + typical accompanying text.
+# The RF-DETR detector emits these class names; the VLM fallback grounds against them.
+symbols:
+  - {class: centrifugal_pump, aliases: [pump, centrifugal], typical_text: "P-"}
+  - {class: positive_displacement_pump, aliases: [pd pump, gear pump], typical_text: "P-"}
+  - {class: vessel, aliases: [drum, accumulator, ko drum], typical_text: "V-"}
+  - {class: column, aliases: [tower, distillation], typical_text: "T-"}
+  - {class: heat_exchanger, aliases: [exchanger, cooler, condenser, reboiler], typical_text: "E-"}
+  - {class: fired_heater, aliases: [furnace, heater], typical_text: "F-"}
+  - {class: compressor, aliases: [k, blower], typical_text: "C-"}
+  - {class: gate_valve, aliases: [block valve, isolation valve], typical_text: ""}
+  - {class: globe_valve, aliases: [throttle valve], typical_text: ""}
+  - {class: check_valve, aliases: [nrv, non-return valve], typical_text: ""}
+  - {class: control_valve, aliases: [cv, fcv, lcv, tcv], typical_text: "CV-"}
+  - {class: relief_valve, aliases: [psv, prv, safety valve], typical_text: "PSV-"}
+  - {class: ball_valve, aliases: [], typical_text: ""}
+  - {class: butterfly_valve, aliases: [], typical_text: ""}
+  - {class: reducer, aliases: [concentric reducer, eccentric reducer], typical_text: ""}
+  - {class: spectacle_blind, aliases: [spec blind, figure 8], typical_text: ""}
+  - {class: instrument_field, aliases: [field bubble], typical_text: ""}
+  - {class: instrument_panel, aliases: [panel bubble], typical_text: ""}
+  - {class: instrument_dcs, aliases: [dcs bubble, shared display], typical_text: ""}
+  - {class: flange, aliases: [], typical_text: ""}
+  - {class: off_page_connector, aliases: [opc, continuation], typical_text: ""}
+  - {class: nozzle, aliases: [equipment nozzle], typical_text: "N"}

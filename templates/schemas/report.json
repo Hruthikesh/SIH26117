@@ -1,0 +1,211 @@
+{
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "executive_summary": {
+      "default": "",
+      "title": "Executive Summary",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "paragraphs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "bullets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bullets",
+            "type": "array"
+          },
+          "tables": {
+            "items": {
+              "properties": {
+                "caption": {
+                  "default": "",
+                  "title": "Caption",
+                  "type": "string"
+                },
+                "columns": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Columns",
+                  "type": "array"
+                },
+                "rows": {
+                  "items": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Rows",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "columns",
+                "rows"
+              ],
+              "title": "TableSpec",
+              "type": "object"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "figures": {
+            "items": {
+              "properties": {
+                "caption": {
+                  "default": "",
+                  "title": "Caption",
+                  "type": "string"
+                },
+                "path": {
+                  "title": "Path",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "title": "FigureSpec",
+              "type": "object"
+            },
+            "title": "Figures",
+            "type": "array"
+          }
+        },
+        "required": [
+          "heading"
+        ],
+        "title": "Section",
+        "type": "object"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "severity": {
+            "default": "info",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "info"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "evidence": {
+            "default": "",
+            "title": "Evidence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "recommendations": {
+      "items": {
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "priority": {
+            "default": "medium",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Priority",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Recommendation",
+        "type": "object"
+      },
+      "title": "Recommendations",
+      "type": "array"
+    },
+    "appendix": {
+      "properties": {
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "unverified_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unverified Claims",
+          "type": "array"
+        }
+      },
+      "title": "Appendix",
+      "type": "object"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "title": "Report",
+  "type": "object"
+}

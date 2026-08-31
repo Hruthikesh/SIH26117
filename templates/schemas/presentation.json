@@ -1,0 +1,54 @@
+{
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "slides": {
+      "items": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "bullets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bullets",
+            "type": "array"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "figure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Figure"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "Slide",
+        "type": "object"
+      },
+      "title": "Slides",
+      "type": "array"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "title": "Presentation",
+  "type": "object"
+}

@@ -1,0 +1,12 @@
+# P&ID suite (SPEC §11.2): planted-deviation recall on the generated sheet.
+#
+# Runs REAL: the vision pipeline reads the ground-truth graph sidecar next to the image
+# (detector inference on the raster is exercised by scripts/train_pid_detector.py + a trained
+# model on a GPU host), and the design-rule engine must flag every planted deviation. A case
+# passes only at 100% deviation recall.
+kind: pid
+rulepack: knowledge/pid/rules.yaml
+cases:
+  - id: pid_3-1201_revC
+    image: corpus/generated/small/drawings/PID_3-1201_RevC.png
+    truth: corpus/generated/small/drawings/PID_3-1201_RevC.truth.json

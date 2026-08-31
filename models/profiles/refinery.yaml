@@ -1,0 +1,54 @@
+# refinery: 4–8 × 80 GB (H100/H200) or 2–4 × B200; Postgres; clustered Qdrant.
+name: refinery
+description: Multi-GPU plant server; BF16 brain with replicas, heavy escalation tier, dedicated ingestion GPU.
+db: postgres
+
+config_defaults:
+  db: {url: "postgresql+psycopg://yantra:yantra@127.0.0.1:5432/yantra"}
+  context: {executor: 96000, planner: 64000, reviewer: 48000, utility: 8000}
+  execution: {max_parallel_tasks: 8}
+  knowledge: {ingest_workers: 8}
+  budgets: {max_tokens: 800000, max_seconds: 7200}
+  sandbox: {max_seconds: 300, max_rss_mb: 16384}
+
+engines:
+  - id: brain
+    kind: vllm
+    model: qwen3.8-27b
+    device: "cuda:0,1"
+    tensor_parallel: 2
+    replicas: 2
+    gpu_memory_utilization: 0.92
+    max_model_len: 131072
+    enable_prefix_caching: true
+  - id: heavy
+    kind: vllm
+    model: gpt-oss-120b
+    device: "cuda:2"
+    gpu_memory_utilization: 0.95
+    max_model_len: 131072
+  - id: utility
+    kind: vllm
+    model: qwen3.5-9b-fp8
+    device: "cuda:3"
+    gpu_memory_utilization: 0.35
+    max_model_len: 65536
+  - id: ocr
+    kind: vllm
+    model: paddleocr-vl-1.6
+    device: "cuda:3"
+    gpu_memory_utilization: 0.15
+  - id: embed
+    kind: pooling
+    models: [qwen3-embedding-4b, qwen3-reranker-0.6b, qwen3-vl-embedding-2b, qwen3-vl-reranker-2b]
+    device: "cuda:3"
+    vram_fraction: 0.35
+
+ingestion:
+  workers: 8
+  expected_pages_per_s: [10, 30]
+
+concurrency:
+  interactive_sessions: 30
+
+measured: {}

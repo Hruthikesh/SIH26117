@@ -1,0 +1,161 @@
+{
+  "goal": "Investigate why pump P-3101A keeps failing; produce a cited root-cause DOCX, XLSX register, work-order draft",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Failure history",
+        "intent": "search logs/manuals/SOPs for P-3101A; keep citations",
+        "role": "analyst",
+        "inputs": [],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "rubric",
+            "rubric_id": "default",
+            "min_score": 80
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t2",
+        "title": "MTBF trend",
+        "intent": "compute MTBF per quarter; render_chart PNG",
+        "role": "data_engineer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "mtbf.png",
+            "type": "png"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "mtbf.png"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t3",
+        "title": "Root-cause report",
+        "intent": "render_document report DOCX with findings, recommendations, citations",
+        "role": "writer",
+        "inputs": [
+          "t1",
+          "t2"
+        ],
+        "outputs": [
+          {
+            "name": "root_cause_report.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "root_cause_report.docx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t4",
+        "title": "Equipment register",
+        "intent": "render_document equipment_list XLSX",
+        "role": "writer",
+        "inputs": [
+          "t1"
+        ],
+        "outputs": [
+          {
+            "name": "equipment_register.xlsx",
+            "type": "xlsx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "equipment_register.xlsx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      },
+      {
+        "id": "t5",
+        "title": "Work order",
+        "intent": "render_document work_order_draft for the corrective action",
+        "role": "writer",
+        "inputs": [
+          "t3"
+        ],
+        "outputs": [
+          {
+            "name": "work_order.md",
+            "type": "md"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "work_order.md"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [
+      [
+        "t1",
+        "t2"
+      ],
+      [
+        "t1",
+        "t3"
+      ],
+      [
+        "t2",
+        "t3"
+      ],
+      [
+        "t1",
+        "t4"
+      ],
+      [
+        "t3",
+        "t5"
+      ]
+    ],
+    "rationale": "investigate -> quantify -> report -> register -> act",
+    "version": 1
+  }
+}

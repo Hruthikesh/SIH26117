@@ -1,0 +1,194 @@
+{
+  "properties": {
+    "drawing_number": {
+      "default": "",
+      "title": "Drawing Number",
+      "type": "string"
+    },
+    "revision": {
+      "default": "",
+      "title": "Revision",
+      "type": "string"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    },
+    "sheet": {
+      "default": "",
+      "title": "Sheet",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "tag": {
+            "default": "",
+            "title": "Tag",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "page": {
+            "default": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "PIDNode",
+        "type": "object"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "style": {
+            "default": "process",
+            "title": "Style",
+            "type": "string"
+          },
+          "line_tag": {
+            "default": "",
+            "title": "Line Tag",
+            "type": "string"
+          },
+          "size_inch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Size Inch"
+          },
+          "spec": {
+            "default": "",
+            "title": "Spec",
+            "type": "string"
+          },
+          "flow_direction": {
+            "default": "unknown",
+            "enum": [
+              "forward",
+              "reverse",
+              "unknown"
+            ],
+            "title": "Flow Direction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target"
+        ],
+        "title": "PIDEdge",
+        "type": "object"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "control_loops": {
+      "items": {
+        "properties": {
+          "loop_number": {
+            "title": "Loop Number",
+            "type": "string"
+          },
+          "elements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Elements",
+            "type": "array"
+          },
+          "narrative": {
+            "default": "",
+            "title": "Narrative",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loop_number"
+        ],
+        "title": "ControlLoop",
+        "type": "object"
+      },
+      "title": "Control Loops",
+      "type": "array"
+    },
+    "coverage": {
+      "default": 1.0,
+      "title": "Coverage",
+      "type": "number"
+    }
+  },
+  "title": "PIDGraph",
+  "type": "object"
+}

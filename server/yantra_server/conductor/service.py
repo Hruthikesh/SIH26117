@@ -1,0 +1,476 @@
+"""Conductor facade: run lifecycle — intake → questions → plan → approval → execute →
+final answer. Crash-only: every transition is persisted before it is acted on."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy import select
+
+from yantra_server.agents import AgentRoster
+from yantra_server.conductor.budgets import BudgetTracker
+from yantra_server.db.base import utcnow
+from yantra_server.db.models import RunRow, SessionRow
+from yantra_server.observe.tracing import run_context, span
+from yantra_server.sandbox import SandboxError, select_sandbox
+
+from .intake import build_goal_spec
+from .notify import RunNotifier
+from .planner import make_plan
+from .scheduler import RunController
+from .types import GoalSpec, Plan
+
+if TYPE_CHECKING:
+    from yantra_server.state import AppState
+
+PLAN_APPROVAL_TIMEOUT_S = 1800.0
+QUESTION_TIMEOUT_S = 900.0
+
+
+@dataclass
+class ActiveRun:
+    controller: RunController
+    driver: asyncio.Task[None]
+    notifier: RunNotifier
+
+
+@dataclass
+class Conductor:
+    state: AppState
+    roster: AgentRoster
+    _active: dict[str, ActiveRun] = field(default_factory=dict)
+    _questions: dict[str, asyncio.Future[list[str]]] = field(default_factory=dict)
+    _approvals: dict[str, asyncio.Future[str]] = field(default_factory=dict)
+
+    # ------------------------------------------------------------- lifecycle
+
+    async def start_run(
+        self,
+        session_id: str,
+        goal_text: str,
+        attachments: list[str],
+        mode_override: str | None = None,
+        budget_overrides: dict[str, int] | None = None,
+    ) -> str:
+        with self.state.db.session() as s:
+            session = s.get(SessionRow, session_id)
+            if session is None:
+                raise ValueError(f"unknown session {session_id}")
+            mode = mode_override or session.mode
+            run = RunRow(
+                session_id=session_id,
+                goal_text=goal_text,
+                status="created",
+                mode=mode,
+                workspace_path=session.workspace_path,
+                collections=list(session.collections),
+                budgets={
+                    "max_tokens": self.state.config.budgets.max_tokens,
+                    "max_seconds": self.state.config.budgets.max_seconds,
+                    "max_tool_calls": self.state.config.budgets.max_tool_calls,
+                },
+            )
+            s.add(run)
+            s.flush()
+            run_id = run.id
+        self.state.audit.append(
+            "user", "run.start", {"run_id": run_id, "goal": goal_text[:300], "mode": mode}
+        )
+        self._launch(
+            run_id, goal_text, Path(str(run.workspace_path)), mode, attachments, resume=False
+        )
+        return run_id
+
+    async def resume_run(self, run_id: str) -> str:
+        with self.state.db.session() as s:
+            run = s.get(RunRow, run_id)
+            if run is None:
+                raise ValueError(f"unknown run {run_id}")
+            if run.status in ("done", "cancelled", "planned"):
+                return run_id
+            goal_text = run.goal_text
+            workspace = Path(run.workspace_path)
+            mode = run.mode
+        self.state.audit.append("user", "run.resume", {"run_id": run_id})
+        self._launch(run_id, goal_text, workspace, mode, [], resume=True)
+        return run_id
+
+    def _launch(
+        self,
+        run_id: str,
+        goal_text: str,
+        workspace: Path,
+        mode: str,
+        attachments: list[str],
+        *,
+        resume: bool,
+        budget_overrides: dict[str, int] | None = None,
+    ) -> None:
+        notifier = RunNotifier(self.state.bus, run_id)
+        overrides = budget_overrides or {}
+        budget = BudgetTracker(
+            max_tokens=int(overrides.get("max_tokens", self.state.config.budgets.max_tokens)),
+            max_seconds=float(overrides.get("max_seconds", self.state.config.budgets.max_seconds)),
+            max_tool_calls=int(
+                overrides.get("max_tool_calls", self.state.config.budgets.max_tool_calls)
+            ),
+            max_sandbox_cpu_s=self.state.config.budgets.max_sandbox_cpu_s,
+            warn_ratio=self.state.config.budgets.warn_ratio,
+        )
+        try:
+            sandbox = select_sandbox(
+                self.state.config.sandbox, workspace, sealed=self.state.config.sealed()
+            )
+        except SandboxError as exc:
+            notifier.error("sandbox_unavailable", str(exc))
+            self._set_run_status(run_id, "failed", final={"summary": str(exc)})
+            return
+        controller = RunController(
+            state=self.state,
+            roster=self.roster,
+            notifier=notifier,
+            run_id=run_id,
+            workspace=workspace,
+            mode=mode,
+            budget=budget,
+            sandbox=sandbox,
+        )
+        driver = asyncio.create_task(
+            self._drive(controller, goal_text, attachments, resume=resume),
+            name=f"run-{run_id[:8]}",
+        )
+        self._active[run_id] = ActiveRun(controller=controller, driver=driver, notifier=notifier)
+        driver.add_done_callback(lambda _t: self._active.pop(run_id, None))
+
+    def cancel(self, run_id: str) -> bool:
+        active = self._active.get(run_id)
+        if active is None:
+            return False
+        active.controller.cancel_event.set()
+        self.state.audit.append("user", "run.cancel", {"run_id": run_id})
+        return True
+
+    # ------------------------------------------------------------- driver
+
+    async def _drive(
+        self,
+        controller: RunController,
+        goal_text: str,
+        attachments: list[str],
+        *,
+        resume: bool,
+    ) -> None:
+        run_id = controller.run_id
+        notifier = controller.notifier
+        with run_context(run_id=run_id), span("run", kind="run", mode=controller.mode):
+            try:
+                goal_spec, plan = await self._prepare(
+                    controller, goal_text, attachments, resume=resume
+                )
+                if plan is None:  # plan-only mode
+                    return
+                controller.goal_spec = goal_spec  # type: ignore[attr-defined]
+                self._set_run_status(run_id, "running")
+                await controller.run()
+                await self._finalize(controller, goal_spec)
+            except asyncio.CancelledError:
+                # User cancellation (Esc) sets cancel_event; a bare task cancel is a crash
+                # (kill -9 analogue) and must leave the persisted state untouched so
+                # `yantra resume` can pick the run up from its checkpoints.
+                if controller.cancel_event.is_set():
+                    self._set_run_status(run_id, "cancelled")
+                raise
+            except Exception as exc:
+                notifier.error("run_failed", f"{type(exc).__name__}: {exc}")
+                self._set_run_status(run_id, "failed", final={"summary": f"run failed: {exc}"})
+
+    async def _prepare(
+        self,
+        controller: RunController,
+        goal_text: str,
+        attachments: list[str],
+        *,
+        resume: bool,
+    ) -> tuple[GoalSpec, Plan | None]:
+        run_id = controller.run_id
+        stored_spec, stored_plan = self._stored_plan(run_id)
+        if resume and stored_spec is not None and stored_plan is not None:
+            controller.restore_from_db(stored_plan)
+            controller.goal_spec = stored_spec  # type: ignore[attr-defined]
+            controller.notifier.plan_updated(stored_plan.model_dump(mode="json"))
+            return stored_spec, stored_plan
+
+        self._set_run_status(run_id, "intake")
+        goal_spec = await build_goal_spec(
+            self.state,
+            goal_text,
+            controller.workspace,
+            list(self._run_collections(run_id)),
+            attachments,
+        )
+        if goal_spec.open_questions and controller.mode == "ask":
+            answers = await self.ask_questions(run_id, goal_spec.open_questions)
+            if answers:
+                goal_spec.constraints.extend(
+                    f"user answered {q!r}: {a}"
+                    for q, a in zip(goal_spec.open_questions, answers, strict=False)
+                )
+                goal_spec.open_questions = []
+
+        self._set_run_status(run_id, "planning")
+        plan = await make_plan(self.state, self.roster, goal_spec)
+        controller.notifier.plan_updated(plan.model_dump(mode="json"))
+        self._store_plan(run_id, goal_spec, plan)
+
+        if controller.mode == "plan":
+            self._set_run_status(run_id, "planned")
+            controller.notifier.finished(
+                "planned",
+                "Plan ready. Switch mode (Tab) and prompt again, or edit with /plan edit.",
+                [],
+                goal_spec.assumptions,
+                [],
+                {},
+            )
+            return goal_spec, None
+
+        if controller.mode == "ask":
+            decision = await self._await_plan_approval(controller, plan)
+            if decision == "deny":
+                self._set_run_status(run_id, "cancelled")
+                controller.notifier.finished("cancelled", "Plan rejected.", [], [], [], {})
+                return goal_spec, None
+
+        controller.install_plan(plan)
+        return goal_spec, plan
+
+    async def _await_plan_approval(self, controller: RunController, plan: Plan) -> str:
+        request_id = f"plan:{controller.run_id}"
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[str] = loop.create_future()
+        self._approvals[request_id] = future
+        from yantra_server.protocol.messages import PermissionRequest
+
+        controller.notifier._publish(
+            PermissionRequest(
+                request_id=request_id,
+                tool="plan",
+                args={"tasks": len(plan.tasks)},
+                rule={"reason": "plan approval (ask mode)"},
+                explanation="Approve the plan to start execution.",
+            )
+        )
+        try:
+            return await asyncio.wait_for(future, timeout=PLAN_APPROVAL_TIMEOUT_S)
+        except TimeoutError:
+            return "deny"
+        finally:
+            self._approvals.pop(request_id, None)
+
+    async def _finalize(self, controller: RunController, goal_spec: GoalSpec) -> None:
+        run_id = controller.run_id
+        artifacts: list[dict[str, Any]] = []
+        summaries: list[str] = []
+        unverified: list[str] = []
+        gaps: list[str] = []
+        for task_id, task_state in controller.tasks.items():
+            if task_state.finish is None:
+                if task_state.status in ("failed", "partial"):
+                    gaps.append(
+                        f"{task_id} ({task_state.plan_task.title}): {task_state.failure_summary or task_state.status}"
+                    )
+                continue
+            summaries.append(
+                f"{task_id} {task_state.plan_task.title}: {task_state.finish.summary[:300]}"
+            )
+            for ref in task_state.finish.artifacts:
+                path = controller.workspace / ref
+                artifacts.append(
+                    {
+                        "name": ref,
+                        "path": str(path if path.exists() else ref),
+                        "task_id": task_id,
+                    }
+                )
+            for claim in task_state.finish.claims:
+                if claim.kind == "fact" and not claim.citations:
+                    unverified.append(claim.text[:200])
+            if task_state.status == "partial":
+                gaps.append(
+                    f"{task_id} ({task_state.plan_task.title}): delivered partially — "
+                    f"{(task_state.failure_summary or 'budget exhausted')[:200]}"
+                )
+        statuses = {ts.status for ts in controller.tasks.values()}
+        status = (
+            "done"
+            if statuses <= {"done"}
+            else ("cancelled" if "cancelled" in statuses else "done_with_gaps")
+        )
+        summary_lines = summaries[:12]
+        if gaps:
+            summary_lines.append("Gaps:")
+            summary_lines.extend(f"- {g}" for g in gaps[:8])
+        summary = "\n".join(summary_lines) or "No tasks produced output."
+        budget_used = controller.budget.snapshot()
+        final = {
+            "summary": summary,
+            "artifacts": artifacts,
+            "assumptions": goal_spec.assumptions,
+            "unverified": unverified,
+            "gaps": gaps,
+            "budget_used": budget_used,
+        }
+        self._set_run_status(run_id, status, final=final)
+        controller.notifier.finished(
+            status, summary, artifacts, goal_spec.assumptions, unverified, budget_used
+        )
+        self.state.audit.append(
+            "system",
+            "run.finished",
+            {"run_id": run_id, "status": status, "artifacts": [a["name"] for a in artifacts]},
+        )
+        await self._consolidate_memory(controller, goal_spec, status)
+
+    async def _consolidate_memory(
+        self, controller: RunController, goal_spec: GoalSpec, status: str
+    ) -> None:
+        """Record an episode and propose a skill after a clean run (SPEC §13)."""
+        if self.state.memory is None:
+            return
+        try:
+            done = [t for t in controller.tasks.values() if t.status == "done"]
+            summary = "; ".join(f"{t.plan_task.title}" for t in done[:8])
+            await self.state.memory.record_episode(controller.run_id, goal_spec.objective, summary)
+            if status == "done" and len(done) >= 2:
+                outline = [t.plan_task.title for t in done]
+                tool_set: set[str] = set()
+                for t in done:
+                    agent = self.roster.get(t.plan_task.role)
+                    if agent is not None:
+                        tool_set.update(agent.tools)
+                await self.state.memory.propose_skill(
+                    controller.run_id, goal_spec.objective, outline, sorted(tool_set)
+                )
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------- questions / approvals
+
+    async def ask_questions(self, run_id: str, questions: list[str]) -> list[str] | None:
+        active = self._active.get(run_id)
+        if active is None:
+            return None
+        request_id = uuid.uuid4().hex[:12]
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[list[str]] = loop.create_future()
+        self._questions[request_id] = future
+        active.notifier.question(request_id, questions)
+        try:
+            return await asyncio.wait_for(future, timeout=QUESTION_TIMEOUT_S)
+        except TimeoutError:
+            return None
+        finally:
+            self._questions.pop(request_id, None)
+
+    def resolve_question(self, request_id: str, answers: list[str]) -> bool:
+        future = self._questions.get(request_id)
+        if future is None or future.done():
+            return False
+        future.set_result(answers)
+        return True
+
+    def resolve_plan_approval(self, run_id: str, decision: str) -> bool:
+        future = self._approvals.get(f"plan:{run_id}")
+        if future is None or future.done():
+            return False
+        future.set_result("allow" if decision in ("once", "always", "allow") else "deny")
+        return True
+
+    async def delegate(
+        self,
+        run_id: str,
+        parent_task_id: str,
+        *,
+        title: str,
+        intent: str,
+        role: str,
+        acceptance: list[dict[str, Any]] | None,
+    ) -> tuple[bool, str]:
+        active = self._active.get(run_id)
+        if active is None:
+            return False, "run is not active"
+        return await active.controller.delegate(
+            parent_task_id, title=title, intent=intent, role=role, acceptance=acceptance
+        )
+
+    async def update_plan(self, run_id: str, plan_data: dict[str, Any]) -> bool:
+        active = self._active.get(run_id)
+        plan = Plan.model_validate(plan_data)
+        if active is not None:
+            active.controller.install_plan(plan)
+            active.notifier.plan_updated(plan.model_dump(mode="json"))
+        spec, _old = self._stored_plan(run_id)
+        if spec is not None:
+            self._store_plan(run_id, spec, plan)
+        return True
+
+    # ------------------------------------------------------------- persistence helpers
+
+    def _set_run_status(
+        self, run_id: str, status: str, final: dict[str, Any] | None = None
+    ) -> None:
+        with self.state.db.session() as s:
+            run = s.get(RunRow, run_id)
+            if run is None:
+                return
+            run.status = status
+            if final is not None:
+                run.final = final
+            if status in ("done", "done_with_gaps", "failed", "cancelled"):
+                run.finished_at = utcnow()
+
+    def _store_plan(self, run_id: str, goal_spec: GoalSpec, plan: Plan) -> None:
+        with self.state.db.session() as s:
+            run = s.get(RunRow, run_id)
+            if run is not None:
+                run.goal_spec = goal_spec.model_dump(mode="json")
+                run.plan = plan.model_dump(mode="json")
+
+    def _stored_plan(self, run_id: str) -> tuple[GoalSpec | None, Plan | None]:
+        with self.state.db.session() as s:
+            run = s.get(RunRow, run_id)
+            if run is None:
+                return None, None
+            spec = GoalSpec.model_validate(run.goal_spec) if run.goal_spec else None
+            plan = Plan.model_validate(run.plan) if run.plan else None
+            return spec, plan
+
+    def _run_collections(self, run_id: str) -> list[str]:
+        with self.state.db.session() as s:
+            run = s.get(RunRow, run_id)
+            return [str(c) for c in (run.collections or [])] if run else []
+
+    async def wait_for_run(self, run_id: str, timeout_s: float | None = None) -> None:
+        active = self._active.get(run_id)
+        if active is None:
+            return
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(asyncio.shield(active.driver), timeout=timeout_s)
+
+    def list_active(self) -> list[str]:
+        return list(self._active)
+
+
+def latest_run_id(state: AppState, session_id: str) -> str | None:
+    with state.db.session() as s:
+        return s.execute(
+            select(RunRow.id)
+            .where(RunRow.session_id == session_id)
+            .order_by(RunRow.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()

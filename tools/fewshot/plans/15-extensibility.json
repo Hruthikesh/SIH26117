@@ -1,0 +1,35 @@
+{
+  "goal": "Register a dropped-in model and use a new agent definition for a permit-to-work audit",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Audit with the new role",
+        "intent": "search permits and SOPs; audit against the checklist in the hse_auditor persona; cited findings report",
+        "role": "analyst",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "audit_findings.docx",
+            "type": "docx"
+          }
+        ],
+        "acceptance": [
+          {
+            "kind": "file_exists",
+            "path": "audit_findings.docx"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [],
+    "rationale": "model add/probe is operator CLI work; the run itself is one audit task",
+    "version": 1
+  }
+}

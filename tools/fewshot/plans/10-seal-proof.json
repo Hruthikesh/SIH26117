@@ -1,0 +1,30 @@
+{
+  "goal": "Demonstrate the seal: verification plus a blocked egress attempt",
+  "plan": {
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Verify and demo",
+        "intent": "run seal verification; attempt an outbound connection from the sandbox and show it blocked+logged",
+        "role": "coder",
+        "inputs": [],
+        "outputs": [],
+        "acceptance": [
+          {
+            "kind": "command_succeeds",
+            "cmd": "yantra seal verify"
+          }
+        ],
+        "budget": {
+          "max_steps": 6,
+          "max_tokens": 40000,
+          "max_seconds": 240,
+          "max_retries": 2
+        }
+      }
+    ],
+    "edges": [],
+    "rationale": "operator-facing proof, no model work",
+    "version": 1
+  }
+}

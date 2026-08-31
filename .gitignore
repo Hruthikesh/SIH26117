@@ -1,0 +1,46 @@
+# Build-prompt working files (not part of the product)
+/YANTRA_BUILD_PROMPT.md
+/HOW_TO_RUN_THE_BUILD.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node
+node_modules/
+tui/dist/
+web/dist/
+*.tsbuildinfo
+
+# Runtime data
+.yantra/
+*.db
+*.db-wal
+*.db-shm
+logs/
+
+# Generated corpus output and bundles
+corpus/generated/
+bundle/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Build-time operator inputs (naming rule: only docs/SPEC.md may carry vendor strings)
+YANTRA_BUILD_PROMPT.md
+HOW_TO_RUN_THE_BUILD.md
+models/weights/
+
+# Not shipped: the build specification stays local; compiled TS siblings are build output
+docs/SPEC.md
+web/src/**/*.js

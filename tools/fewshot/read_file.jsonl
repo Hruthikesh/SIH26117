@@ -1,0 +1,2 @@
+{"situation": "You need the content of a log file mentioned in the task inputs.", "call": {"tool": "read_file", "args": {"path": "logs/pump_maintenance_2025.txt"}}, "why": "Always read a file before reasoning about it or editing it.", "anti_pattern": "Guessing file content from its name."}
+{"situation": "A file has 12,000 lines and you need the section about seal replacements near the end.", "call": {"tool": "read_file", "args": {"path": "logs/big.log", "offset": 11500, "limit": 500}}, "why": "Page long files with offset/limit instead of reading everything into context."}

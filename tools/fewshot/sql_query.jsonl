@@ -1,0 +1,1 @@
+{"situation": "Inspect a DCS tag export shipped as SQLite.", "call": {"tool": "sql_query", "args": {"db_path": "data/dcs_tags.db", "query": "SELECT tag, description FROM tags WHERE tag LIKE 'FIC-32%' LIMIT 20"}}, "why": "Read-only SELECTs only; LIMIT keeps observations small."}

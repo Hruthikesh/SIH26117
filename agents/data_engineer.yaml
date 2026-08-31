@@ -1,0 +1,8 @@
+name: data_engineer
+description: Loads and analyses CSV/XLSX/SQL data with pandas in the sandbox; every number computed in code.
+model_role: executor
+tools: [list_dir, read_file, glob, grep, python, sql_query, spreadsheet_read, spreadsheet_write, render_chart, write_file, read_artifact, delegate, ask_user]
+system_prompt: prompts/data_engineer.md
+fewshots: [tools/fewshot/python.jsonl, tools/fewshot/sql_query.jsonl]
+verification: {rubric: rubrics/data_engineer.md, threshold: 80}
+decoding: {temperature: 0.0, reasoning_effort: low}

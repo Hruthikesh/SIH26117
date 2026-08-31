@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "to": {
+      "default": "",
+      "title": "To",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "body": {
+      "title": "Body",
+      "type": "string"
+    }
+  },
+  "required": [
+    "subject",
+    "body"
+  ],
+  "title": "EmailDraft",
+  "type": "object"
+}

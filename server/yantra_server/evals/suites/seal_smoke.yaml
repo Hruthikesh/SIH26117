@@ -1,0 +1,4 @@
+# Seal smoke (SPEC §14.5): full verification — build/env/socket-guard/network/cert checks
+# plus a short agent run that must complete with every guard active. Egress attempts must be
+# blocked and logged. On an unsealed dev box the sandbox-network check is skipped (reported).
+kind: seal

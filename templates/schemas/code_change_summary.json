@@ -1,0 +1,35 @@
+{
+  "properties": {
+    "title": {
+      "default": "Code change summary",
+      "title": "Title",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "tests": {
+      "default": "",
+      "title": "Tests",
+      "type": "string"
+    },
+    "risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risks",
+      "type": "array"
+    }
+  },
+  "title": "CodeChangeSummary",
+  "type": "object"
+}

@@ -1,0 +1,8 @@
+name: planner
+description: Turns a goal into a small DAG of typed, checkable tasks.
+model_role: planner
+tools: []
+system_prompt: prompts/planner.md
+fewshots: []
+verification: {rubric: rubrics/default.md, threshold: 80}
+decoding: {temperature: 0.0, reasoning_effort: medium}

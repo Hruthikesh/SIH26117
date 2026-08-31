@@ -1,0 +1,1 @@
+{"situation": "Task asks to review P&ID sheet 3-1201.", "call": {"tool": "pid_analyze", "args": {"path": "drawings/3-1201_revC.png"}}, "why": "Always build the graph first; topology from pixels alone is unreliable.", "anti_pattern": "Captioning the whole sheet from one overview view_image call."}

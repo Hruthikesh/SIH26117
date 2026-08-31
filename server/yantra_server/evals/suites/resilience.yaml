@@ -1,0 +1,13 @@
+# Resilience suite (SPEC §20.4). The failure-injection behaviours are exercised as
+# property-style pytest cases (deterministic and CI-gated); this suite records their presence
+# and points at them. Run them with: pytest -m "integration" server/tests/integration/test_conductor.py
+# and server/tests/unit/test_sandbox_and_exec.py, test_gateway_resilience.py.
+kind: resilience
+covers:
+  - engine timeout mid-stream → retry
+  - malformed JSON twice → escalate
+  - tool exception → retry/replan
+  - sandbox timeout + oversized output cap
+  - kill -9 at a scheduler transition → resume, no duplicate files
+  - Qdrant unavailable → degrade to lexical with a warning span
+  - tool network attempt → blocked and logged
