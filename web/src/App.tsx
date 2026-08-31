@@ -1,20 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { getJson } from "./api.js";
 import { Pill } from "./components.js";
+import { ChatPage } from "./pages/Chat.js";
 import { RunsPage } from "./pages/Runs.js";
 import { SealPage } from "./pages/Seal.js";
 import { ModelsPage } from "./pages/Models.js";
 import { KnowledgePage } from "./pages/Knowledge.js";
 import { EvalsPage } from "./pages/Evals.js";
 import { AuditPage } from "./pages/Audit.js";
+import { SettingsPage } from "./pages/Settings.js";
 
 const PAGES = {
+  chat: { label: "Workbench", ico: "❯", component: ChatPage },
   runs: { label: "Runs", ico: "▶", component: RunsPage },
   seal: { label: "Seal Monitor", ico: "◈", component: SealPage },
   models: { label: "Models", ico: "◆", component: ModelsPage },
   knowledge: { label: "Knowledge", ico: "▤", component: KnowledgePage },
   evals: { label: "Evaluations", ico: "✓", component: EvalsPage },
   audit: { label: "Audit", ico: "≡", component: AuditPage },
+  settings: { label: "Settings", ico: "⚙", component: SettingsPage },
 } as const;
 
 type PageKey = keyof typeof PAGES;
@@ -29,7 +33,7 @@ interface Health {
 export function App(): React.ReactElement {
   const [page, setPage] = useState<PageKey>(() => {
     const hash = location.hash.replace("#", "") as PageKey;
-    return hash in PAGES ? hash : "runs";
+    return hash in PAGES ? hash : "chat";
   });
   const [health, setHealth] = useState<Health | null>(null);
 
@@ -54,7 +58,7 @@ export function App(): React.ReactElement {
     <div className="app">
       <div className="sidebar">
         <div className="brand">
-          <div className="brand-mark">✦</div>
+          <div className="brand-mark">✻</div>
           <div>
             <div className="brand-name">YANTRA</div>
             <div className="brand-sub">Sovereign AI Workbench</div>

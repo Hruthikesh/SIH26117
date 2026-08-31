@@ -107,6 +107,10 @@ class ModelInfo(BaseModel):
     healthy: bool | None = None
     vram_gb: float = 0
     quant: str | None = None
+    local: bool = False  # came from the machine-local overlay registry
+    path: str | None = None  # weights path, when known
+    probes_passed: int | None = None  # None = never probed
+    probes_total: int | None = None
 
 
 class ModelsListResult(BaseModel):

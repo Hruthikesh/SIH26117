@@ -253,7 +253,9 @@ def _record_measured(loaded: LoadedConfig, key: str, value: dict[str, Any]) -> N
 
 @bench_app.command("ingest")
 def bench_ingest_cmd(
-    docs: Annotated[Path | None, typer.Option(help="Directory to ingest (default: generated corpus)")] = None,
+    docs: Annotated[
+        Path | None, typer.Option(help="Directory to ingest (default: generated corpus)")
+    ] = None,
 ) -> None:
     """Measure ingestion pages/s and chunks/s on this hardware; record into the profile file."""
     import asyncio

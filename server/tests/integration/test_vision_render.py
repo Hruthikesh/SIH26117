@@ -12,6 +12,10 @@ import pytest
 from tests.helpers import make_ctx, make_state
 from yantra_server.state import AppState
 
+# The P&ID + render pipeline needs the [vision] and [render] extras; skip on a base install.
+for _extra in ("numpy", "cv2", "PIL", "matplotlib", "docxtpl", "docx", "reportlab"):
+    pytest.importorskip(_extra, reason="vision/render extras not installed")
+
 pytestmark = pytest.mark.integration
 
 REPO = Path(__file__).resolve().parents[3]

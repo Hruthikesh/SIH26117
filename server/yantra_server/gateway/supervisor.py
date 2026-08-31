@@ -114,7 +114,10 @@ class Supervisor:
             with contextlib.suppress(OSError, yaml.YAMLError):
                 entries = yaml.safe_load(path.read_text(encoding="utf-8")) or []
         entries = [e for e in entries if e.get("id") != spec.id]
-        entries.append(spec.model_dump(mode="json", exclude_none=True, exclude_defaults=True) | {"id": spec.id, "kind": spec.kind})
+        entries.append(
+            spec.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
+            | {"id": spec.id, "kind": spec.kind}
+        )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(yaml.safe_dump(entries, sort_keys=False), encoding="utf-8")
 
@@ -209,11 +212,19 @@ class Supervisor:
 
         Replaces a same-id engine that is not running (re-integration after a failure)."""
         for existing in list(self.processes):
-            if existing.spec.id == spec.id and existing.status in ("stopped", "failed", "unavailable"):
+            if existing.spec.id == spec.id and existing.status in (
+                "stopped",
+                "failed",
+                "unavailable",
+            ):
                 self.processes.remove(existing)
         used = [ep.port for ep in self.processes if ep.port is not None]
         needs_port = spec.kind in ("vllm", "llamacpp") and not spec.url
-        ep = EngineProcess(spec=spec, replica=0, port=(max(used, default=BASE_PORT - 1) + 1) if needs_port else None)
+        ep = EngineProcess(
+            spec=spec,
+            replica=0,
+            port=(max(used, default=BASE_PORT - 1) + 1) if needs_port else None,
+        )
         self.processes.append(ep)
         await self.start(ep)
         return ep

@@ -102,8 +102,14 @@ warn_unreachable = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ["tantivy.*", "fitz.*", "pymupdf.*", "cv2.*", "docxtpl.*", "pptx.*", "docx.*", "openpyxl.*", "shapely.*", "networkx.*", "sentence_transformers.*", "qdrant_client.*", "tokenizers.*", "rapidfuzz.*", "reportlab.*", "matplotlib.*", "PIL.*", "rfdetr.*", "rapidocr_onnxruntime.*"]
+module = ["tantivy.*", "fitz.*", "pymupdf.*", "cv2.*", "numpy.*", "docxtpl.*", "pptx.*", "docx.*", "openpyxl.*", "shapely.*", "networkx.*", "sentence_transformers.*", "qdrant_client.*", "tokenizers.*", "rapidfuzz.*", "reportlab.*", "matplotlib.*", "PIL.*", "rfdetr.*", "rapidocr_onnxruntime.*"]
 ignore_missing_imports = true
+
+# These modules call optional third-party APIs whose type coverage depends on whether
+# the extra is installed, so their inline ignores flip between used and unused per env.
+[[tool.mypy.overrides]]
+module = ["yantra_server.vision.tiling", "yantra_server.knowledge.ingest.parse"]
+warn_unused_ignores = false
 
 [tool.pytest.ini_options]
 testpaths = ["server/tests"]

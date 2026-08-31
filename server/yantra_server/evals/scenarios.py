@@ -123,6 +123,7 @@ class ScenarioContext:
 
 # --------------------------------------------------------------------- scenario 2
 
+
 def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
     _register_common(mock)
     mock.add_canned(
@@ -135,16 +136,45 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
     )
     plan = _plan(
         tasks=[
-            _task("t1", "Investigate failure history", "Search logs, manuals and SOPs for P-3101A",
-                  "analyst", []),
-            _task("t2", "Plot MTBF trend", "Render an MTBF-over-time chart", "data_engineer",
-                  [("mtbf.png", "png")], deps=["t1"]),
-            _task("t3", "Write root-cause report", "Produce the cited DOCX root-cause report",
-                  "writer", [("root_cause_report.docx", "docx")], deps=["t1", "t2"]),
-            _task("t4", "Build equipment register", "Produce the XLSX equipment register", "writer",
-                  [("equipment_register.xlsx", "xlsx")], deps=["t1"]),
-            _task("t5", "Draft work order", "Draft the corrective work order", "writer",
-                  [("work_order.md", "md")], deps=["t3"]),
+            _task(
+                "t1",
+                "Investigate failure history",
+                "Search logs, manuals and SOPs for P-3101A",
+                "analyst",
+                [],
+            ),
+            _task(
+                "t2",
+                "Plot MTBF trend",
+                "Render an MTBF-over-time chart",
+                "data_engineer",
+                [("mtbf.png", "png")],
+                deps=["t1"],
+            ),
+            _task(
+                "t3",
+                "Write root-cause report",
+                "Produce the cited DOCX root-cause report",
+                "writer",
+                [("root_cause_report.docx", "docx")],
+                deps=["t1", "t2"],
+            ),
+            _task(
+                "t4",
+                "Build equipment register",
+                "Produce the XLSX equipment register",
+                "writer",
+                [("equipment_register.xlsx", "xlsx")],
+                deps=["t1"],
+            ),
+            _task(
+                "t5",
+                "Draft work order",
+                "Draft the corrective work order",
+                "writer",
+                [("work_order.md", "md")],
+                deps=["t3"],
+            ),
         ],
         edges=[["t1", "t2"], ["t1", "t3"], ["t2", "t3"], ["t1", "t4"], ["t3", "t5"]],
         rationale="investigate -> quantify -> report -> register -> act",
@@ -153,24 +183,41 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
 
     mock.add_canned_sequence(
         [
-            _step("search_knowledge", {"query": "P-3101A seal failure vibration history",
-                                       "collections": [ctx.collection], "k": 8}),
-            _finish("Found seal-flush and vibration history for P-3101A.",
-                    claims=[{"text": "P-3101A shows repeated mechanical seal failures", "kind": "fact"}]),
+            _step(
+                "search_knowledge",
+                {
+                    "query": "P-3101A seal failure vibration history",
+                    "collections": [ctx.collection],
+                    "k": 8,
+                },
+            ),
+            _finish(
+                "Found seal-flush and vibration history for P-3101A.",
+                claims=[
+                    {"text": "P-3101A shows repeated mechanical seal failures", "kind": "fact"}
+                ],
+            ),
         ],
         role="executor",
         contains="Task t1:",
     )
     mock.add_canned_sequence(
         [
-            _step("render_chart", {
-                "spec": {
-                    "type": "line", "title": "P-3101A MTBF trend",
-                    "x_label": "Quarter", "y_label": "MTBF (days)",
-                    "series": [{"name": "MTBF", "x": ["Q1", "Q2", "Q3", "Q4"], "y": [180, 120, 90, 60]}],
+            _step(
+                "render_chart",
+                {
+                    "spec": {
+                        "type": "line",
+                        "title": "P-3101A MTBF trend",
+                        "x_label": "Quarter",
+                        "y_label": "MTBF (days)",
+                        "series": [
+                            {"name": "MTBF", "x": ["Q1", "Q2", "Q3", "Q4"], "y": [180, 120, 90, 60]}
+                        ],
+                    },
+                    "out_path": "mtbf.png",
                 },
-                "out_path": "mtbf.png",
-            }),
+            ),
             _finish("MTBF trend rendered, declining 180 to 60 days.", artifacts=["mtbf.png"]),
         ],
         role="executor",
@@ -180,19 +227,36 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
         "title": "P-3101A Root-Cause Report",
         "metadata": {"equipment": "P-3101A", "unit": "Unit 3 — LPG Recovery"},
         "executive_summary": "Repeated mechanical seal failures traced to seal-flush plan gaps.",
-        "sections": [{"heading": "Findings", "paragraphs": [
-            "MTBF has declined from 180 to 60 days over four quarters."]}],
-        "findings": [{"id": "F1", "severity": "high",
-                      "statement": "Seal-flush plan inadequate for service", "evidence": "log trend"}],
-        "recommendations": [{"id": "R1", "text": "Upgrade to API Plan 53B seal flush",
-                             "priority": "high"}],
+        "sections": [
+            {
+                "heading": "Findings",
+                "paragraphs": ["MTBF has declined from 180 to 60 days over four quarters."],
+            }
+        ],
+        "findings": [
+            {
+                "id": "F1",
+                "severity": "high",
+                "statement": "Seal-flush plan inadequate for service",
+                "evidence": "log trend",
+            }
+        ],
+        "recommendations": [
+            {"id": "R1", "text": "Upgrade to API Plan 53B seal flush", "priority": "high"}
+        ],
         "appendix": {"citations": [], "assumptions": [], "unverified_claims": []},
     }
     mock.add_canned_sequence(
         [
-            _step("render_document", {"type": "docx", "schema_id": "report",
-                                      "data_json": json.dumps(report_data),
-                                      "out_path": "root_cause_report.docx"}),
+            _step(
+                "render_document",
+                {
+                    "type": "docx",
+                    "schema_id": "report",
+                    "data_json": json.dumps(report_data),
+                    "out_path": "root_cause_report.docx",
+                },
+            ),
             _finish("Root-cause report written.", artifacts=["root_cause_report.docx"]),
         ],
         role="executor",
@@ -207,9 +271,15 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
     }
     mock.add_canned_sequence(
         [
-            _step("render_document", {"type": "xlsx", "schema_id": "equipment_list",
-                                      "data_json": json.dumps(register_data),
-                                      "out_path": "equipment_register.xlsx"}),
+            _step(
+                "render_document",
+                {
+                    "type": "xlsx",
+                    "schema_id": "equipment_list",
+                    "data_json": json.dumps(register_data),
+                    "out_path": "equipment_register.xlsx",
+                },
+            ),
             _finish("Equipment register written.", artifacts=["equipment_register.xlsx"]),
         ],
         role="executor",
@@ -220,14 +290,27 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
         "equipment": "P-3101A",
         "priority": "high",
         "description": "Upgrade mechanical seal flush to API Plan 53B and re-baseline vibration.",
-        "steps": ["Isolate and drain", "Replace seal + flush plan", "Re-align", "Baseline vibration"],
-        "safety_notes": ["LPG service — verify zero energy and gas-free before breaking containment"],
+        "steps": [
+            "Isolate and drain",
+            "Replace seal + flush plan",
+            "Re-align",
+            "Baseline vibration",
+        ],
+        "safety_notes": [
+            "LPG service — verify zero energy and gas-free before breaking containment"
+        ],
     }
     mock.add_canned_sequence(
         [
-            _step("render_document", {"type": "md", "schema_id": "work_order_draft",
-                                      "data_json": json.dumps(work_order),
-                                      "out_path": "work_order.md"}),
+            _step(
+                "render_document",
+                {
+                    "type": "md",
+                    "schema_id": "work_order_draft",
+                    "data_json": json.dumps(work_order),
+                    "out_path": "work_order.md",
+                },
+            ),
             _finish("Work order drafted.", artifacts=["work_order.md"]),
         ],
         role="executor",
@@ -237,17 +320,24 @@ def _build_pump_reliability(mock: MockEngine, ctx: ScenarioContext) -> None:
 
 # --------------------------------------------------------------------- scenario 3
 
+
 def _build_pid_review(mock: MockEngine, ctx: ScenarioContext) -> None:
     _register_common(mock)
     mock.add_canned(
-        _goal_spec("Review the P&ID against pump and PSV checklists",
-                   [("md", "pid_analysis.md")]),
+        _goal_spec("Review the P&ID against pump and PSV checklists", [("md", "pid_analysis.md")]),
         role="planner",
         contains="Goal:",
     )
     plan = _plan(
-        tasks=[_task("t1", "Analyse the P&ID", "Extract the graph and coverage from the drawing",
-                     "drawing_engineer", [("pid_analysis.md", "md")])],
+        tasks=[
+            _task(
+                "t1",
+                "Analyse the P&ID",
+                "Extract the graph and coverage from the drawing",
+                "drawing_engineer",
+                [("pid_analysis.md", "md")],
+            )
+        ],
         edges=[],
         rationale="analyse the drawing and record coverage",
     )
@@ -259,8 +349,13 @@ def _build_pid_review(mock: MockEngine, ctx: ScenarioContext) -> None:
     mock.add_canned_sequence(
         [
             _step("pid_analyze", {"path": ctx.pid_image}),
-            _step("write_file", {"path": "pid_analysis.md",
-                                 "content": "# P&ID analysis\nGraph extracted; see pid suite for rule findings.\n"}),
+            _step(
+                "write_file",
+                {
+                    "path": "pid_analysis.md",
+                    "content": "# P&ID analysis\nGraph extracted; see pid suite for rule findings.\n",
+                },
+            ),
             _finish("P&ID analysed; graph and coverage extracted.", artifacts=["pid_analysis.md"]),
         ],
         role="vision",
@@ -307,19 +402,39 @@ _SELFTEST = (
 def _build_code_modernisation(mock: MockEngine, ctx: ScenarioContext) -> None:
     _register_common(mock)
     mock.add_canned(
-        _goal_spec("Modernise tank_gauging.py: fix the unit bug, add types + CLI + tests",
-                   [("code", "tank_gauging_fixed.py"), ("md", "change_summary.md")]),
+        _goal_spec(
+            "Modernise tank_gauging.py: fix the unit bug, add types + CLI + tests",
+            [("code", "tank_gauging_fixed.py"), ("md", "change_summary.md")],
+        ),
         role="planner",
         contains="Goal:",
     )
     plan = _plan(
         tasks=[
-            _task("t1", "Rewrite module", "Fix the unit bug, add type hints and a CLI", "coder",
-                  [("tank_gauging_fixed.py", "code")]),
-            _task("t2", "Run the tests", "Execute the module self-test in the sandbox", "coder",
-                  [], deps=["t1"], acceptance=[{"kind": "file_exists", "path": "tank_gauging_fixed.py"}]),
-            _task("t3", "Write change summary", "Produce the code_change_summary", "writer",
-                  [("change_summary.md", "md")], deps=["t2"]),
+            _task(
+                "t1",
+                "Rewrite module",
+                "Fix the unit bug, add type hints and a CLI",
+                "coder",
+                [("tank_gauging_fixed.py", "code")],
+            ),
+            _task(
+                "t2",
+                "Run the tests",
+                "Execute the module self-test in the sandbox",
+                "coder",
+                [],
+                deps=["t1"],
+                acceptance=[{"kind": "file_exists", "path": "tank_gauging_fixed.py"}],
+            ),
+            _task(
+                "t3",
+                "Write change summary",
+                "Produce the code_change_summary",
+                "writer",
+                [("change_summary.md", "md")],
+                deps=["t2"],
+            ),
         ],
         edges=[["t1", "t2"], ["t2", "t3"]],
         rationale="fix -> verify -> document",
@@ -328,8 +443,10 @@ def _build_code_modernisation(mock: MockEngine, ctx: ScenarioContext) -> None:
     mock.add_canned_sequence(
         [
             _step("write_file", {"path": "tank_gauging_fixed.py", "content": _FIXED_MODULE}),
-            _finish("Module rewritten: bug fixed, types + CLI added.",
-                    artifacts=["tank_gauging_fixed.py"]),
+            _finish(
+                "Module rewritten: bug fixed, types + CLI added.",
+                artifacts=["tank_gauging_fixed.py"],
+            ),
         ],
         role="executor",
         contains="Task t1:",
@@ -351,9 +468,15 @@ def _build_code_modernisation(mock: MockEngine, ctx: ScenarioContext) -> None:
     }
     mock.add_canned_sequence(
         [
-            _step("render_document", {"type": "md", "schema_id": "code_change_summary",
-                                      "data_json": json.dumps(summary_data),
-                                      "out_path": "change_summary.md"}),
+            _step(
+                "render_document",
+                {
+                    "type": "md",
+                    "schema_id": "code_change_summary",
+                    "data_json": json.dumps(summary_data),
+                    "out_path": "change_summary.md",
+                },
+            ),
             _finish("Change summary written.", artifacts=["change_summary.md"]),
         ],
         role="executor",
@@ -363,20 +486,35 @@ def _build_code_modernisation(mock: MockEngine, ctx: ScenarioContext) -> None:
 
 # --------------------------------------------------------------------- scenario 5
 
+
 def _build_consolidation(mock: MockEngine, ctx: ScenarioContext) -> None:
     _register_common(mock)
     mock.add_canned(
-        _goal_spec("Consolidate inspection reports into a register and draft follow-ups",
-                   [("xlsx", "inspection_register.xlsx"), ("md", "followup_email.md")]),
+        _goal_spec(
+            "Consolidate inspection reports into a register and draft follow-ups",
+            [("xlsx", "inspection_register.xlsx"), ("md", "followup_email.md")],
+        ),
         role="planner",
         contains="Goal:",
     )
     plan = _plan(
         tasks=[
-            _task("t1", "Fan out over reports", "Delegate extraction of each 2025 inspection report",
-                  "analyst", [], acceptance=[{"kind": "rubric", "rubric_id": "default", "min_score": 80}]),
-            _task("t2", "Merge and draft", "Merge the register and draft the follow-up email",
-                  "writer", [("inspection_register.xlsx", "xlsx")], deps=["t1"]),
+            _task(
+                "t1",
+                "Fan out over reports",
+                "Delegate extraction of each 2025 inspection report",
+                "analyst",
+                [],
+                acceptance=[{"kind": "rubric", "rubric_id": "default", "min_score": 80}],
+            ),
+            _task(
+                "t2",
+                "Merge and draft",
+                "Merge the register and draft the follow-up email",
+                "writer",
+                [("inspection_register.xlsx", "xlsx")],
+                deps=["t1"],
+            ),
         ],
         edges=[["t1", "t2"]],
         rationale="delegate per report, then merge and draft",
@@ -400,12 +538,30 @@ def _build_consolidation(mock: MockEngine, ctx: ScenarioContext) -> None:
     # t1 (analyst) fans out to three children (has delegate, not render).
     mock.add_canned_sequence(
         [
-            _step("delegate", {"title": "Extract V-3110", "intent": "Extract findings for V-3110",
-                               "role": "analyst"}),
-            _step("delegate", {"title": "Extract E-3105", "intent": "Extract findings for E-3105",
-                               "role": "analyst"}),
-            _step("delegate", {"title": "Extract T-3120", "intent": "Extract findings for T-3120",
-                               "role": "analyst"}),
+            _step(
+                "delegate",
+                {
+                    "title": "Extract V-3110",
+                    "intent": "Extract findings for V-3110",
+                    "role": "analyst",
+                },
+            ),
+            _step(
+                "delegate",
+                {
+                    "title": "Extract E-3105",
+                    "intent": "Extract findings for E-3105",
+                    "role": "analyst",
+                },
+            ),
+            _step(
+                "delegate",
+                {
+                    "title": "Extract T-3120",
+                    "intent": "Extract findings for T-3120",
+                    "role": "analyst",
+                },
+            ),
             _finish("Extracted findings from three 2025 inspection reports via fan-out."),
         ],
         role="executor",
@@ -414,14 +570,28 @@ def _build_consolidation(mock: MockEngine, ctx: ScenarioContext) -> None:
     # t2 (writer) renders the register and the follow-up email (has render_document).
     mock.add_canned_sequence(
         [
-            _step("render_document", {"type": "xlsx", "schema_id": "data_table",
-                                      "data_json": json.dumps(_register_as_table(register_data)),
-                                      "out_path": "inspection_register.xlsx"}),
-            _step("render_document", {"type": "md", "schema_id": "email_draft",
-                                      "data_json": json.dumps(email_data),
-                                      "out_path": "followup_email.md"}),
-            _finish("Register consolidated and follow-up drafted.",
-                    artifacts=["inspection_register.xlsx", "followup_email.md"]),
+            _step(
+                "render_document",
+                {
+                    "type": "xlsx",
+                    "schema_id": "data_table",
+                    "data_json": json.dumps(_register_as_table(register_data)),
+                    "out_path": "inspection_register.xlsx",
+                },
+            ),
+            _step(
+                "render_document",
+                {
+                    "type": "md",
+                    "schema_id": "email_draft",
+                    "data_json": json.dumps(email_data),
+                    "out_path": "followup_email.md",
+                },
+            ),
+            _finish(
+                "Register consolidated and follow-up drafted.",
+                artifacts=["inspection_register.xlsx", "followup_email.md"],
+            ),
         ],
         role="executor",
         contains="Task t2:",
@@ -451,7 +621,12 @@ SCENARIOS: dict[str, Scenario] = {
         goal="Investigate why pump P-3101A keeps failing; produce a cited root-cause report (DOCX), "
         "an equipment register (XLSX) and a corrective work-order draft.",
         mode="auto",
-        expect_files=["root_cause_report.docx", "equipment_register.xlsx", "work_order.md", "mtbf.png"],
+        expect_files=[
+            "root_cause_report.docx",
+            "equipment_register.xlsx",
+            "work_order.md",
+            "mtbf.png",
+        ],
         build=_build_pump_reliability,
         collections=["demo"],
     ),

@@ -77,6 +77,33 @@ POLICY = RoutingPolicy.model_validate(
 )
 
 
+def test_unlisted_role_falls_back_to_best_available(tmp_path: Path) -> None:
+    """A small installation: role has no listed candidate up -> strongest available model."""
+    router = Router(POLICY, make_registry(tmp_path), lambda m: m in ("small", "brain"))
+    decision = router.route(RouteNeed(role="reviewer"))  # role absent from POLICY
+    assert decision.model == "brain"  # bigger of the two available
+    assert "best-available" in decision.reason
+
+
+def test_fallback_prefers_probe_scores(tmp_path: Path) -> None:
+    registry = make_registry(tmp_path)
+    small = registry.get("small")
+    assert small is not None
+    small.probes.update({"json": "pass", "tools": "pass", "coding_score": 80})
+    router = Router(POLICY, registry, lambda m: m in ("small", "brain"))
+    decision = router.route(RouteNeed(role="reviewer"))
+    assert decision.model == "small"  # probe evidence beats raw size
+
+
+def test_fallback_uses_mock_only_when_allowed(tmp_path: Path) -> None:
+    registry = make_registry(tmp_path)
+    sealed = Router(POLICY, registry, lambda m: m == "mock", allow_mock=False)
+    with pytest.raises(NoRouteAvailable):
+        sealed.route(RouteNeed(role="reviewer"))
+    dev = Router(POLICY, registry, lambda m: m == "mock", allow_mock=True)
+    assert dev.route(RouteNeed(role="reviewer")).model == "mock"
+
+
 def test_first_available_wins(tmp_path: Path) -> None:
     router = Router(POLICY, make_registry(tmp_path), lambda m: True)
     decision = router.route(RouteNeed(role="executor"))
@@ -131,6 +158,52 @@ def test_mock_disallowed_when_sealed(tmp_path: Path) -> None:
         sealed_router.route(RouteNeed(role="executor"))
     dev_router = Router(POLICY, registry, lambda m: m == "mock", allow_mock=True)
     assert dev_router.route(RouteNeed(role="executor")).model == "mock"
+
+
+def test_assignments_policy_pick(tmp_path: Path) -> None:
+    router = Router(POLICY, make_registry(tmp_path), lambda m: True)
+    by_role = {a.role: a for a in router.current_assignments()}
+    executor = by_role["executor"]
+    assert executor.model_id == "brain"
+    assert executor.source == "policy"
+    assert executor.reason == "first available policy candidate"
+    assert executor.probes_passed is None and executor.probes_total is None  # never probed
+
+
+def test_assignments_fallback_pick_and_role_order(tmp_path: Path) -> None:
+    registry = make_registry(tmp_path)
+    brain = registry.get("brain")
+    assert brain is not None
+    brain.roles = ["reviewer"]  # claimed by the model, absent from the policy
+    brain.probes.update({"json": "pass", "tools": "fail", "coding_score": 80})
+    router = Router(POLICY, registry, lambda m: m in ("brain", "small"))
+    assignments = router.current_assignments()
+    # planner/executor/reviewer/router/utility first, remaining roles alphabetically.
+    assert [a.role for a in assignments] == ["executor", "reviewer", "utility", "heavy"]
+    reviewer = next(a for a in assignments if a.role == "reviewer")
+    assert reviewer.model_id == "brain"
+    assert reviewer.source == "fallback"
+    assert reviewer.reason == "best available model by probe evidence"
+    assert reviewer.probes_passed == 1 and reviewer.probes_total == 2  # scores not counted
+
+
+def test_assignments_none_when_nothing_can_serve(tmp_path: Path) -> None:
+    router = Router(POLICY, make_registry(tmp_path), lambda m: False)
+    assignments = router.current_assignments()
+    assert assignments  # every policy role is still reported
+    for assignment in assignments:
+        assert assignment.model_id is None
+        assert assignment.source == "none"
+        assert assignment.probes_passed is None and assignment.probes_total is None
+
+
+def test_assignments_match_live_routing(tmp_path: Path) -> None:
+    """current_assignments must agree with what route() would actually do."""
+    router = Router(POLICY, make_registry(tmp_path), lambda m: m == "small")
+    by_role = {a.role: a for a in router.current_assignments()}
+    assert by_role["executor"].model_id == router.route(RouteNeed(role="executor")).model
+    assert by_role["heavy"].model_id == router.route(RouteNeed(role="heavy")).model
+    assert by_role["heavy"].source == "fallback"  # big/brain down; small is unlisted for heavy
 
 
 def test_bundled_routing_policy_parses() -> None:

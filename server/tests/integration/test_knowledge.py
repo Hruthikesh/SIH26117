@@ -11,6 +11,10 @@ import pytest
 from tests.helpers import make_state
 from yantra_server.state import AppState
 
+# The knowledge plane needs the [knowledge] extra; skip cleanly on a base install.
+for _extra in ("tantivy", "qdrant_client", "pymupdf"):
+    pytest.importorskip(_extra, reason="knowledge extra not installed")
+
 pytestmark = pytest.mark.integration
 
 REPO = Path(__file__).resolve().parents[3]

@@ -149,3 +149,21 @@ marked below with the exact command to finish them. Dev commands on Windows: use
 - [x] Machine-local overlays (ADR 0012): registry.local.yaml / routing.local.yaml / integrated_engines.yaml under the data dir; supervisor auto-starts integrated engines on boot; shipped models/*.yaml stay pristine
 - [x] Verified live end-to-end on this box: llama.cpp b10723 + Qwen2.5-1.5B-Instruct Q4_K_M integrated via the UI button; real-model run created reports/status.txt through sandboxed python (run a8b2e83c, done_with_gaps — content quality is 1.5B-grade, honestly scored partial by the verifier)
 - [x] Three harness bugs found by the first real model and fixed with tests: exemplar parroting (relevance-picked exemplars), mock shadowing real engines (real engines win), llama.cpp grammar rejection of string maxLength (stripped for llamacpp; executor clamps instead of failing)
+
+## Post-1.0 — Workbench console (user-driven)
+- [x] Workbench page: chat-driven agent surface in the browser over the same JSON-RPC as the TUI — streaming transcript, live tool cards, plan cards, task chips, inline permission/question prompts, run stats line, Stop, any-folder workspace + ask/auto/plan
+- [x] Settings page: installation facts, live engine/server log tails, every config key with its source layer (/api/config, /api/logs)
+- [x] Models: in-app integration guide; Downloads-folder discovery; automatic role assignment from capabilities; auto-probe on integration
+- [x] Router best-available fallback: no listed candidate up → strongest available model by probe evidence then size (tests)
+- [x] Verified live: two Workbench-driven runs on the integrated 1.5B wrote real files into a user-chosen folder; transcript honestly reports gaps where the small model's content fell short
+- [x] Workbench v2: session rail with one-click resume (replay + reattach to running runs), markdown rendering, ↑ history / Esc interrupt / prompt queueing, collapsible tool output with diff coloring
+
+## Post-1.0 — Terminal-dark console, deep discovery, routing visibility (user-driven)
+- [x] Console redesigned as one deliberate dark theme — warm charcoal ground, cream text, coral accent, the coding-agent look end to end: boxed ✻ welcome with cwd, coral ❯ prompt, dark session rail/tables/cards; sweep of all pages fixed a real bug (goal input typed black-on-dark; inputs don't inherit body color) and a low-contrast chart hue
+- [x] Deep disk discovery (gateway/discovery.py, pure + unit-tested): Downloads, Desktop, Documents, models dirs, Ollama, LM Studio, GPT4All, HF cache, C:/D:\models — depth-4 pruned walk, GGUF magic verified, HF snapshots as folder candidates, dedup, cap 300; found 8 real items on this box in ~1s
+- [x] Routing made visible: `GET /api/routing/assignments` + `Router.current_assignments()` share the exact pick logic with `route()` (parity test); Models page "Who does what right now" board shows each role's model, how it was chosen, and probe evidence
+- [x] `/api/models` enriched (origin local/bundled, weights path, probes passed/total); Models page restructured: On this computer → Added models → assignments → in-app guide
+- [x] Settings log tail: white-on-dark terminal viewer, warn/error colorized, stick-to-bottom — verified against the live 3.4 MB llama-server log
+- [x] Two real bugs fixed with regression tests: sandbox shell picked the WSL `bash.EXE` store shim on Windows (run_tests exit 127 → locate real Git Bash); `registry.save()` rewrote the shipped registry.yaml on probe (overlay-only persistence; probed bundled models promote into the overlay, origin label preserved, shipped tree byte-stable under probe/integrate)
+- [x] End to end on the real model: Workbench goal → plan → `reports/summary.txt` written with the exact requested line → honest done_with_gaps; probe evidence survives restarts via the overlay
+- [x] Gates: ruff clean, mypy --strict clean, 212 unit tests, web build clean; built with two parallel agents (server feature + dark-theme sweep) per operator request

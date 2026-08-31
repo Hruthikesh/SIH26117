@@ -44,6 +44,13 @@ class ModelManifest(BaseModel):
         p = Path(self.path)
         return p if p.is_absolute() else models_dir / p
 
+    def probe_counts(self) -> tuple[int | None, int | None]:
+        """(passed, total) over the pass/fail probe verdicts; (None, None) when never probed."""
+        verdicts = [v for k, v in self.probes.items() if not k.endswith("_score")]
+        if not verdicts:
+            return None, None
+        return sum(1 for v in verdicts if v == "pass"), len(verdicts)
+
 
 class RegistryError(Exception):
     pass
@@ -68,15 +75,18 @@ class ModelRegistry:
         self.local_file = local_file
         self._manifests: dict[str, ModelManifest] = {}
         self._local_ids: set[str] = set()
+        self._shipped_ids: set[str] = set()
         self.load()
 
     def load(self) -> None:
         self._manifests.clear()
         self._local_ids.clear()
+        self._shipped_ids.clear()
         if self.registry_file.is_file():
             for entry in self._read_list(self.registry_file):
                 manifest = ModelManifest.model_validate(entry)
                 self._manifests[manifest.id] = manifest
+                self._shipped_ids.add(manifest.id)
         else:
             log.warning("model registry %s missing; starting empty", self.registry_file)
         if self.local_file is not None and self.local_file.is_file():
@@ -93,16 +103,20 @@ class ModelRegistry:
         return raw
 
     def save(self) -> None:
-        shipped = [
-            m.model_dump(mode="json", exclude_none=True)
-            for m in self._manifests.values()
-            if m.id not in self._local_ids
-        ]
-        self.registry_file.write_text(
-            "# Model registry (SPEC §7.4). Managed by `yantra models add|remove|probe`.\n"
-            + yaml.safe_dump(shipped, sort_keys=False, allow_unicode=True),
-            encoding="utf-8",
-        )
+        # With a machine-local overlay configured, the shipped registry is read-only:
+        # every mutation (integrations, probe evidence) persists to the overlay instead,
+        # so the checked-in file never changes byte-for-byte on a running install.
+        if self.local_file is None:
+            shipped = [
+                m.model_dump(mode="json", exclude_none=True)
+                for m in self._manifests.values()
+                if m.id not in self._local_ids
+            ]
+            self.registry_file.write_text(
+                "# Model registry (SPEC §7.4). Managed by `yantra models add|remove|probe`.\n"
+                + yaml.safe_dump(shipped, sort_keys=False, allow_unicode=True),
+                encoding="utf-8",
+            )
         if self.local_file is not None:
             local = [
                 m.model_dump(mode="json", exclude_none=True)
@@ -122,6 +136,14 @@ class ModelRegistry:
     def get(self, model_id: str) -> ModelManifest | None:
         return self._manifests.get(model_id)
 
+    def is_local(self, model_id: str) -> bool:
+        """True when the model was added on this machine (not part of the shipped registry).
+
+        Overlay membership alone is not enough: probing a shipped model promotes its
+        manifest into the overlay for persistence, but its origin stays "bundled".
+        """
+        return model_id in self._manifests and model_id not in self._shipped_ids
+
     def register(
         self, manifest: ModelManifest, *, allow_large: bool = False, local: bool = False
     ) -> None:
@@ -140,6 +162,10 @@ class ModelRegistry:
         if manifest is None:
             raise RegistryError(f"unknown model {model_id}")
         manifest.probes.update(probes)
+        # Probe evidence must survive restarts without touching the shipped file:
+        # promote the manifest into the overlay, which wins on id collision at load.
+        if self.local_file is not None:
+            self._local_ids.add(model_id)
 
     def sync_to_db(self, db: Database) -> None:
         with db.session() as s:
@@ -169,11 +195,13 @@ class ModelRegistry:
 # ------------------------------------------------------------------ inspection
 
 
-def is_gguf_file(path: Path) -> bool:
-    """A GGUF file by extension or magic — Ollama stores GGUFs as extensionless blobs."""
+def is_gguf_file(path: Path, *, require_magic: bool = False) -> bool:
+    """A GGUF file by extension or magic — Ollama stores GGUFs as extensionless blobs.
+
+    require_magic skips the extension shortcut: the file must actually start with GGUF."""
     if not path.is_file():
         return False
-    if path.suffix == ".gguf":
+    if path.suffix == ".gguf" and not require_magic:
         return True
     try:
         with path.open("rb") as fh:

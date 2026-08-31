@@ -15,7 +15,7 @@ const KIND_COLOR: Record<string, string> = {
   "llm.embed": "#84adff",
   "tool.call": "#12b76a",
   retrieval: "#f79009",
-  verify: "#7a5af8",
+  verify: "var(--violet)",
 };
 const KIND_LABEL: Record<string, string> = {
   "llm.call": "model",
@@ -110,7 +110,7 @@ export function RunsPage(): React.ReactElement {
             placeholder='Describe a goal — e.g. "Create a folder reports and write status.txt inside it"'
             style={{
               flex: 1, padding: "9px 13px", border: "1px solid var(--border)", borderRadius: 8,
-              fontSize: 13.5, fontFamily: "var(--font)", background: "var(--surface)",
+              fontSize: 13.5, fontFamily: "var(--font)", background: "var(--surface)", color: "var(--ink)",
             }}
           />
           <button className="primary" onClick={startRun} disabled={starting || !goal.trim()}>

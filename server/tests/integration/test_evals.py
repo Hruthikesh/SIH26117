@@ -43,6 +43,9 @@ async def test_pid_suite_full_deviation_recall(runner: EvalRunner) -> None:
 
 async def test_scenarios_2_to_5_pass(runner: EvalRunner) -> None:
     """SPEC §22 M9 DoD. Scripted model reasoning, real tools/corpus/vision/render."""
+    # Scenarios span the knowledge/vision/render planes; skip on a base install.
+    for extra in ("tantivy", "qdrant_client", "pymupdf", "numpy", "cv2", "docxtpl", "matplotlib"):
+        pytest.importorskip(extra, reason="optional extras required for scenarios 2-5")
     report = await runner.run("tasks")
     failures = [f"{c.case_id}: {c.detail}" for c in report.cases if not c.passed]
     assert not failures, failures
@@ -65,9 +68,9 @@ async def test_latency_suite_reports_metrics(runner: EvalRunner) -> None:
 async def test_results_recorded_in_db(runner: EvalRunner) -> None:
     await runner.run("resilience")
     with runner.state.db.session() as s:
-        run = s.execute(
-            select(EvalRunRow).where(EvalRunRow.suite == "resilience")
-        ).scalars().first()
+        run = (
+            s.execute(select(EvalRunRow).where(EvalRunRow.suite == "resilience")).scalars().first()
+        )
         assert run is not None and run.status == "done" and run.finished_at is not None
         results = list(
             s.execute(select(EvalResultRow).where(EvalResultRow.eval_run_id == run.id)).scalars()

@@ -34,6 +34,19 @@ export interface ModelInfo {
   capabilities: string[];
   available: boolean;
   vram_gb: number;
+  local?: boolean;
+  path?: string | null;
+  probes_passed?: number | null;
+  probes_total?: number | null;
+}
+
+export interface RoleAssignment {
+  role: string;
+  model_id: string | null;
+  source: "policy" | "fallback" | "none";
+  reason: string;
+  probes_passed: number | null;
+  probes_total: number | null;
 }
 
 export interface EngineStatus {

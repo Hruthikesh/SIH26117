@@ -110,6 +110,21 @@ class NoRouteAvailable(Exception):
         self.rejected = rejected
 
 
+# Roles shown first in /api/routing/assignments; anything else follows alphabetically.
+ASSIGNMENT_ROLE_ORDER = ("planner", "executor", "reviewer", "router", "utility")
+
+
+class RoleAssignment(BaseModel):
+    """What live routing would pick for one role right now (GET /api/routing/assignments)."""
+
+    role: str
+    model_id: str | None = None
+    source: Literal["policy", "fallback", "none"]
+    reason: str
+    probes_passed: int | None = None
+    probes_total: int | None = None
+
+
 class Router:
     def __init__(
         self,
@@ -139,6 +154,41 @@ class Router:
             if action.action == "best_of_n" and rung_index == rung - 1:
                 best_of_n = action.n
 
+        manifest, rejected = self._first_policy_candidate(need, role)
+        if manifest is not None:
+            effort = self._effort(need, rung)
+            reason_text = self._reason_text(need, role, rung, rejected)
+            return RouteDecision(
+                model=manifest.id,
+                engine=manifest.engine,
+                effort=effort,
+                reason=reason_text,
+                rejected=rejected,
+                ladder_rung=rung,
+                best_of_n=best_of_n,
+            )
+        # Best-available fallback: a small installation may have one real model and none of
+        # the role's listed candidates. Rather than fail, rank every available model that
+        # meets the need and take the strongest (probe scores, then size). Mock still only
+        # wins when allowed and nothing real exists.
+        fallback = self._best_available(need, exclude={r.model for r in rejected})
+        if fallback is not None:
+            effort = self._effort(need, rung)
+            return RouteDecision(
+                model=fallback.id,
+                engine=fallback.engine,
+                effort=effort,
+                reason=f"role={need.role} (best-available fallback: no listed candidate up)",
+                rejected=rejected,
+                ladder_rung=rung,
+                best_of_n=best_of_n,
+            )
+        raise NoRouteAvailable(need, rejected)
+
+    def _first_policy_candidate(
+        self, need: RouteNeed, role: str
+    ) -> tuple[ModelManifest | None, list[Rejection]]:
+        """First candidate in the role's configured list that can serve right now."""
         candidates = self.policy.roles.get(role) or self.policy.roles.get(need.role) or []
         rejected: list[Rejection] = []
         for model_id in candidates:
@@ -156,18 +206,92 @@ class Router:
             if not self.is_available(model_id):
                 rejected.append(Rejection(model=model_id, reason="engine not healthy"))
                 continue
-            effort = self._effort(need, rung)
-            reason_text = self._reason_text(need, role, rung, rejected)
-            return RouteDecision(
-                model=model_id,
-                engine=manifest.engine,
-                effort=effort,
-                reason=reason_text,
-                rejected=rejected,
-                ladder_rung=rung,
-                best_of_n=best_of_n,
+            return manifest, rejected
+        return None, rejected
+
+    def current_assignments(self) -> list[RoleAssignment]:
+        """Resolve, for every known role, the model live routing would pick right now.
+
+        Covers each role the policy knows plus each role any registered model claims,
+        through the same candidate order, availability filters and best-available
+        fallback that route() uses (no escalation ladder: that is per-request)."""
+        roles = set(self.policy.roles)
+        for manifest in self.registry.all():
+            roles.update(manifest.roles)
+        ordered = [r for r in ASSIGNMENT_ROLE_ORDER if r in roles]
+        ordered += sorted(roles.difference(ASSIGNMENT_ROLE_ORDER))
+        assignments: list[RoleAssignment] = []
+        for role in ordered:
+            need = RouteNeed(role=role)
+            picked, rejected = self._first_policy_candidate(need, role)
+            if picked is not None:
+                assignments.append(
+                    self._assignment(role, picked, "policy", "first available policy candidate")
+                )
+                continue
+            fallback = self._best_available(need, exclude={r.model for r in rejected})
+            if fallback is not None:
+                assignments.append(
+                    self._assignment(
+                        role, fallback, "fallback", "best available model by probe evidence"
+                    )
+                )
+                continue
+            assignments.append(
+                RoleAssignment(
+                    role=role,
+                    model_id=None,
+                    source="none",
+                    reason="no registered model can serve this role right now",
+                )
             )
-        raise NoRouteAvailable(need, rejected)
+        return assignments
+
+    @staticmethod
+    def _assignment(
+        role: str, manifest: ModelManifest, source: Literal["policy", "fallback"], reason: str
+    ) -> RoleAssignment:
+        passed, total = manifest.probe_counts()
+        return RoleAssignment(
+            role=role,
+            model_id=manifest.id,
+            source=source,
+            reason=reason,
+            probes_passed=passed,
+            probes_total=total,
+        )
+
+    def _best_available(self, need: RouteNeed, exclude: set[str]) -> ModelManifest | None:
+        scored: list[tuple[float, str, ModelManifest]] = []
+        for manifest in self.registry.all():
+            if manifest.id in exclude or self._capability_gap(manifest, need):
+                continue
+            if manifest.engine == "mock":
+                continue  # handled below, only as the very last resort
+            if "chat" not in manifest.capabilities and need.role not in (
+                "embed",
+                "embed_visual",
+                "rerank",
+                "rerank_visual",
+                "ocr",
+            ):
+                continue
+            if not self.is_available(manifest.id):
+                continue
+            probe_score = sum(1.0 for v in manifest.probes.values() if v == "pass") + sum(
+                float(v) / 100
+                for k, v in manifest.probes.items()
+                if k.endswith("_score") and isinstance(v, int | float)
+            )
+            scored.append((probe_score + manifest.params_b / 1000, manifest.id, manifest))
+        if scored:
+            scored.sort(reverse=True)
+            return scored[0][2]
+        if self.allow_mock:
+            mock = self.registry.get("mock")
+            if mock is not None and self.is_available("mock"):
+                return mock
+        return None
 
     def _capability_gap(self, manifest: ModelManifest, need: RouteNeed) -> str | None:
         caps = set(manifest.capabilities)

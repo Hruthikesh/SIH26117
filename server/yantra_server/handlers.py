@@ -357,8 +357,10 @@ async def models_list(
     state: AppState, conn: Connection, params: msg.ModelsListParams
 ) -> msg.ModelsListResult:
     state.registry.load()
-    return msg.ModelsListResult(
-        models=[
+    models: list[msg.ModelInfo] = []
+    for m in state.registry.all():
+        probes_passed, probes_total = m.probe_counts()
+        models.append(
             msg.ModelInfo(
                 id=m.id,
                 family=m.family,
@@ -370,10 +372,13 @@ async def models_list(
                 healthy=state.supervisor.model_available(m.id),
                 vram_gb=m.vram_gb,
                 quant=m.quant,
+                local=state.registry.is_local(m.id),
+                path=m.path or None,
+                probes_passed=probes_passed,
+                probes_total=probes_total,
             )
-            for m in state.registry.all()
-        ]
-    )
+        )
+    return msg.ModelsListResult(models=models)
 
 
 @rpc_method("seal.status", msg.SealStatusParams)

@@ -21,7 +21,7 @@ from yantra_server.config import LoadedConfig, load_config
 from yantra_server.db.base import Database
 from yantra_server.db.migrate import upgrade_to_head
 from yantra_server.gateway.profile_spec import ProfileSpec
-from yantra_server.gateway.registry import ModelRegistry
+from yantra_server.gateway.registry import ModelManifest, ModelRegistry
 from yantra_server.gateway.router import Router, RoutingPolicy
 from yantra_server.gateway.service import Gateway
 from yantra_server.gateway.supervisor import Supervisor
@@ -136,6 +136,24 @@ def build_state(loaded: LoadedConfig) -> AppState:
 
     state.memory = MemoryService(db, gateway, loaded.assets_dir / "skills")
     return state
+
+
+def _auto_roles(manifest: Any) -> list[str]:
+    """Assign router roles from a model's capabilities (one-click integration).
+
+    Specialists get their one role; chat models get the general roles, plus vision
+    duties when they can see. Probes run after serving starts and refine ranking."""
+    caps = set(manifest.capabilities)
+    if "embed" in caps:
+        return ["embed"]
+    if "rerank" in caps:
+        return ["rerank"]
+    if "ocr" in caps:
+        return ["ocr"]
+    roles = ["planner", "executor", "reviewer", "router", "utility"]
+    if "vision" in caps:
+        roles += ["vision"]
+    return roles
 
 
 def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
@@ -283,9 +301,7 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
             payload = []
             for run in runs:
                 results = (
-                    s.execute(
-                        select(EvalResultRow).where(EvalResultRow.eval_run_id == run.id)
-                    )
+                    s.execute(select(EvalResultRow).where(EvalResultRow.eval_run_id == run.id))
                     .scalars()
                     .all()
                 )
@@ -311,6 +327,41 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
                 )
         return {"eval_runs": payload}
 
+    @app.get("/api/logs")
+    async def api_logs() -> dict[str, Any]:
+        logs_dir = state.config.paths.data_dir / "logs"
+        files = []
+        if logs_dir.is_dir():
+            for p in sorted(logs_dir.glob("*.log"), key=lambda x: x.stat().st_mtime, reverse=True):
+                files.append({"name": p.name, "size_kb": round(p.stat().st_size / 1024, 1)})
+        return {"files": files}
+
+    @app.get("/api/logs/{name}")
+    async def api_log_tail(name: str, tail: int = 200) -> Any:
+        logs_dir = (state.config.paths.data_dir / "logs").resolve()
+        target = (logs_dir / name).resolve()
+        if target.parent != logs_dir or not target.is_file():
+            return JSONResponse({"error": "no such log"}, status_code=404)
+        text = await asyncio.to_thread(target.read_text, encoding="utf-8", errors="replace")
+        lines = text.splitlines()[-max(1, min(tail, 2000)) :]
+        return {"name": name, "lines": lines}
+
+    @app.get("/api/config")
+    async def api_config() -> dict[str, Any]:
+        from yantra_server.config import effective_report
+
+        return {
+            "profile": state.config.profile,
+            "sealed": state.config.sealed(),
+            "config_file": str(loaded.config_file) if loaded.config_file else None,
+            "assets_dir": str(loaded.assets_dir),
+            "data_dir": str(state.config.paths.data_dir),
+            "models_dir": str(state.config.paths.models_dir),
+            "entries": [
+                {"key": k, "value": v, "source": s} for k, v, s in effective_report(loaded)
+            ],
+        }
+
     @app.get("/api/knowledge")
     async def api_knowledge() -> Any:
         if state.knowledge is not None:
@@ -320,14 +371,20 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
     @app.get("/api/models")
     async def api_models() -> dict[str, Any]:
         state.registry.load()  # hot-reload: operators may have edited registry.yaml
+
+        def model_entry(m: ModelManifest) -> dict[str, Any]:
+            passed, total = m.probe_counts()
+            return {
+                **m.model_dump(mode="json"),
+                "available": state.supervisor.model_available(m.id),
+                "local": state.registry.is_local(m.id),
+                "path": m.path or None,
+                "probes_passed": passed,
+                "probes_total": total,
+            }
+
         return {
-            "models": [
-                {
-                    **m.model_dump(mode="json"),
-                    "available": state.supervisor.model_available(m.id),
-                }
-                for m in state.registry.all()
-            ],
+            "models": [model_entry(m) for m in state.registry.all()],
             "engines": state.supervisor.status(),
         }
 
@@ -363,70 +420,34 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
 
     @app.get("/api/models/discover")
     async def api_models_discover() -> dict[str, Any]:
-        """Downloaded-but-unregistered models: weight drops, HF dirs, Ollama blobs."""
-        from yantra_server.gateway.registry import is_gguf_file
+        """Downloaded-but-unregistered models: weight drops, app stores, HF/Ollama caches."""
+        from yantra_server.gateway.discovery import discover_local_models
 
-        registered_paths = set()
-        for m in state.registry.all():
-            registered_paths.add(str(Path(m.path)))
-            registered_paths.add(str(m.resolved_path(state.config.paths.models_dir)))
-
-        candidates: list[dict[str, Any]] = []
-
-        def add_candidate(path: Path, name: str, kind: str, source: str) -> None:
-            try:
-                size = path.stat().st_size if path.is_file() else sum(
-                    f.stat().st_size for f in path.rglob("*") if f.is_file()
-                )
-            except OSError:
-                return
-            candidates.append(
-                {
-                    "path": str(path),
-                    "name": name,
-                    "kind": kind,
-                    "source": source,
-                    "size_gb": round(size / 1e9, 2),
-                    "registered": str(path) in registered_paths,
-                }
+        def scan() -> list[dict[str, Any]]:
+            registered_paths: set[str] = set()
+            for m in state.registry.all():
+                for p in (Path(m.path), m.resolved_path(state.config.paths.models_dir)):
+                    try:
+                        registered_paths.add(str(p.resolve()))
+                    except OSError:
+                        continue
+            return discover_local_models(
+                state.config.paths.models_dir, loaded.assets_dir, registered_paths
             )
 
-        roots = [state.config.paths.models_dir, loaded.assets_dir / "models" / "weights"]
-        seen_dirs: set[str] = set()
-        for root in roots:
-            if not root.is_dir() or str(root) in seen_dirs:
-                continue
-            seen_dirs.add(str(root))
-            for entry in sorted(root.iterdir()):
-                if entry.name.startswith(".") or entry.name == "MODELS.sha256":
-                    continue
-                if entry.is_file() and is_gguf_file(entry):
-                    add_candidate(entry, entry.stem, "gguf", "weights folder")
-                elif entry.is_dir() and (entry / "config.json").is_file():
-                    add_candidate(entry, entry.name, "hf", "weights folder")
+        candidates = await asyncio.to_thread(scan)
+        return {
+            "candidates": candidates,
+            "llamacpp_available": shutil.which("llama-server") is not None,
+        }
 
-        ollama = Path.home() / ".ollama" / "models"
-        manifest_root = ollama / "manifests"
-        if manifest_root.is_dir():
-            for mf in manifest_root.rglob("*"):
-                if not mf.is_file():
-                    continue
-                try:
-                    data = json.loads(mf.read_text(encoding="utf-8"))
-                    layer = next(
-                        layer
-                        for layer in data.get("layers", [])
-                        if str(layer.get("mediaType", "")).endswith("image.model")
-                    )
-                    digest = str(layer["digest"]).replace(":", "-")
-                    blob = ollama / "blobs" / digest
-                    if blob.is_file():
-                        name = f"{mf.parent.name}:{mf.name}"
-                        add_candidate(blob, name, "gguf", "ollama")
-                except (json.JSONDecodeError, StopIteration, KeyError, OSError):
-                    continue
-
-        return {"candidates": candidates, "llamacpp_available": shutil.which("llama-server") is not None}
+    @app.get("/api/routing/assignments")
+    async def api_routing_assignments() -> dict[str, Any]:
+        """Which model each role resolves to right now (the logic live routing uses)."""
+        state.registry.load()  # hot-reload, same as /api/models
+        return {
+            "assignments": [a.model_dump(mode="json") for a in state.router.current_assignments()]
+        }
 
     @app.post("/api/models/integrate")
     async def api_models_integrate(body: dict[str, Any]) -> Any:
@@ -447,12 +468,11 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
             return JSONResponse({"error": str(exc)}, status_code=400)
         if name := str(body.get("name", "")).strip():
             manifest.id = name
-        default_roles = ["planner", "executor", "reviewer", "router", "utility"]
-        manifest.roles = [str(r) for r in body.get("roles") or default_roles]
+        manifest.roles = [str(r) for r in body.get("roles") or _auto_roles(manifest)]
         try:
             state.registry.register(
-            manifest, allow_large=bool(body.get("allow_large", False)), local=True
-        )
+                manifest, allow_large=bool(body.get("allow_large", False)), local=True
+            )
         except LargeModelRefused as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
         state.registry.save()
@@ -479,13 +499,51 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
             )
             ep = await state.supervisor.add_engine(spec)
             state.supervisor.persist_integrated(spec)  # survives server restarts
-            engine_status = {"engine_id": ep.spec.id, "status": ep.status, "port": ep.port,
-                             "error": ep.last_error}
+            engine_status = {
+                "engine_id": ep.spec.id,
+                "status": ep.status,
+                "port": ep.port,
+                "error": ep.last_error,
+            }
+
+            async def probe_when_healthy(model_id: str = manifest.id) -> None:
+                """Probe the freshly served model so routing can rank it by evidence."""
+                from yantra_server.gateway.probe import run_probes
+
+                deadline = asyncio.get_running_loop().time() + 300
+                while asyncio.get_running_loop().time() < deadline:
+                    await state.supervisor.check_health_once()
+                    if state.supervisor.model_available(model_id):
+                        break
+                    await asyncio.sleep(5)
+                else:
+                    return
+                m = state.registry.get(model_id)
+                if m is None:
+                    return
+                outcomes = await run_probes(state.gateway, model_id, m.capabilities)
+                probes: dict[str, Any] = {
+                    o.probe: ("pass" if o.passed else "fail") for o in outcomes
+                }
+                for o in outcomes:
+                    if o.score is not None:
+                        probes[f"{o.probe}_score"] = o.score
+                state.registry.set_probes(model_id, probes)
+                state.registry.save()
+                state.audit.append(
+                    "system", "models.autoprobe", {"model": model_id, "probes": probes}
+                )
+
+            asyncio.get_running_loop().create_task(probe_when_healthy())
         state.audit.append(
             "user",
             "models.integrate",
-            {"model": manifest.id, "path": raw_path, "roles": manifest.roles,
-             "engine": engine_status},
+            {
+                "model": manifest.id,
+                "path": raw_path,
+                "roles": manifest.roles,
+                "engine": engine_status,
+            },
         )
         return {
             "model": manifest.model_dump(mode="json"),
@@ -508,7 +566,9 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
             ws = state.config.paths.data_dir / "console-runs" / uuid.uuid4().hex[:8]
         await asyncio.to_thread(ws.mkdir, parents=True, exist_ok=True)
         with state.db.session() as s:
-            session = SessionRow(workspace_path=str(ws), collections=[], mode="auto", title="console")
+            session = SessionRow(
+                workspace_path=str(ws), collections=[], mode="auto", title="console"
+            )
             s.add(session)
             s.flush()
             session_id = session.id
@@ -591,7 +651,9 @@ def create_app(loaded: LoadedConfig | None = None) -> FastAPI:
     # The dashboard ships inside the package (vite outDir = server/yantra_server/static),
     # so it is present in the wheel/Docker image; web/dist is the dev-server fallback.
     packaged = Path(__file__).parent / "static"
-    web_dist = packaged if (packaged / "index.html").is_file() else loaded.assets_dir / "web" / "dist"
+    web_dist = (
+        packaged if (packaged / "index.html").is_file() else loaded.assets_dir / "web" / "dist"
+    )
     if (web_dist / "index.html").is_file():
         app.mount("/", StaticFiles(directory=str(web_dist), html=True), name="dashboard")
     else:

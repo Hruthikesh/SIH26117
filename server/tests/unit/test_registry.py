@@ -44,6 +44,32 @@ def test_registry_save_roundtrip(tmp_path: Path) -> None:
     assert manifest is not None and manifest.roles == ["utility"]
 
 
+def test_overlay_keeps_shipped_file_pristine(tmp_path: Path) -> None:
+    """With a local overlay, no mutation may rewrite the shipped registry file."""
+    shipped = tmp_path / "reg.yaml"
+    shipped.write_text(
+        "# hand-written comment that must survive\n"
+        "- id: base\n  path: p\n  engine: llamacpp\n  params_b: 4\n  roles: [utility]\n",
+        encoding="utf-8",
+    )
+    before = shipped.read_bytes()
+    overlay = tmp_path / "reg.local.yaml"
+    registry = ModelRegistry(shipped, tmp_path, local_file=overlay)
+
+    registry.register(ModelManifest(id="mine", path="q", engine="llamacpp", params_b=2), local=True)
+    registry.set_probes("base", {"json": "pass"})
+    registry.save()
+
+    assert shipped.read_bytes() == before
+    assert overlay.is_file()
+
+    reloaded = ModelRegistry(shipped, tmp_path, local_file=overlay)
+    base = reloaded.get("base")
+    assert base is not None and base.probes.get("json") == "pass"
+    # Origin: probing a shipped model must not relabel it as machine-local.
+    assert reloaded.is_local("mine") and not reloaded.is_local("base")
+
+
 def _write_gguf(path: Path, kvs: list[tuple[str, int, bytes]]) -> None:
     """Handcraft a minimal GGUF header for tests: kvs are (key, type, encoded_value)."""
     blob = b"GGUF" + struct.pack("<I", 3) + struct.pack("<Q", 0) + struct.pack("<Q", len(kvs))

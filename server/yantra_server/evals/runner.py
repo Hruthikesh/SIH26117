@@ -109,7 +109,11 @@ class EvalRunner:
             self._prepare_workspace(case, workspace)
             collections = case.get("collections", [])
             for collection in collections:
-                if collection not in ingested and self.state.knowledge is not None and ctx is not None:
+                if (
+                    collection not in ingested
+                    and self.state.knowledge is not None
+                    and ctx is not None
+                ):
                     await self.state.knowledge.ingest_path(ctx["docs"], collection)
                     ingested.add(collection)
             if case.get("script") and mock is not None and ctx is not None:
@@ -118,12 +122,16 @@ class EvalRunner:
                 setup_scenario(mock, case["script"], ScenarioContext(**ctx["scenario_ctx"]))
             elif case.get("script") and mock is None:
                 results.append(
-                    CaseResult(case_id, False, 0.0, detail="scripted scenario needs the mock profile")
+                    CaseResult(
+                        case_id, False, 0.0, detail="scripted scenario needs the mock profile"
+                    )
                 )
                 continue
             with self.state.db.session() as s:
                 session = SessionRow(
-                    workspace_path=str(workspace), collections=collections, mode=case.get("mode", "auto")
+                    workspace_path=str(workspace),
+                    collections=collections,
+                    mode=case.get("mode", "auto"),
                 )
                 s.add(session)
                 s.flush()
@@ -132,7 +140,9 @@ class EvalRunner:
                 run_id = await self.state.conductor.start_run(
                     session_id, case["goal"], [], case.get("mode", "auto")
                 )
-                await self.state.conductor.wait_for_run(run_id, timeout_s=case.get("timeout_s", 300))
+                await self.state.conductor.wait_for_run(
+                    run_id, timeout_s=case.get("timeout_s", 300)
+                )
             except Exception as exc:
                 results.append(CaseResult(case_id, False, 0.0, detail=f"run error: {exc}"))
                 continue
@@ -187,7 +197,9 @@ class EvalRunner:
             },
         }
 
-    def _resolve_case(self, raw: dict[str, Any], mock: Any, ctx: dict[str, Any] | None) -> dict[str, Any]:
+    def _resolve_case(
+        self, raw: dict[str, Any], mock: Any, ctx: dict[str, Any] | None
+    ) -> dict[str, Any]:
         """Merge a Scenario's metadata into a scripted case so YAML can stay a one-liner."""
         if not raw.get("script"):
             return dict(raw)
@@ -272,7 +284,9 @@ class EvalRunner:
         rulepack = load_rulepack(self.state.loaded.assets_dir / suite["rulepack"])
         for case in suite.get("cases", []):
             image = self.state.loaded.assets_dir / case["image"]
-            truth = json.loads((self.state.loaded.assets_dir / case["truth"]).read_text(encoding="utf-8"))
+            truth = json.loads(
+                (self.state.loaded.assets_dir / case["truth"]).read_text(encoding="utf-8")
+            )
             graph = await pipeline.analyze(image)
             assert isinstance(graph, PIDGraph)
             findings = RuleEngine(rulepack).check(graph)
@@ -356,9 +370,13 @@ class EvalRunner:
                 "latency",
                 True,
                 1.0,
-                metrics={"p50_ms": round(p50, 2), "p95_ms": round(p95, 2),
-                         "ttft_ms": round(sum(ttfts) / max(len(ttfts), 1), 2),
-                         "tok_per_s": round(tok_s, 1), "samples": n},
+                metrics={
+                    "p50_ms": round(p50, 2),
+                    "p95_ms": round(p95, 2),
+                    "ttft_ms": round(sum(ttfts) / max(len(ttfts), 1), 2),
+                    "tok_per_s": round(tok_s, 1),
+                    "samples": n,
+                },
                 detail=f"p50 {p50:.1f}ms p95 {p95:.1f}ms {tok_s:.0f} tok/s over {n}{note}",
             )
         ]
@@ -406,7 +424,9 @@ def write_evals_doc(reports: list[SuiteReport], out_path: Path) -> None:
     ]
     for report in reports:
         lines.append(f"## {report.suite} (profile: {report.profile})")
-        lines.append(f"- pass rate: {report.pass_rate():.0%} ({len(report.cases)} cases, {report.wall_s:.1f}s)")
+        lines.append(
+            f"- pass rate: {report.pass_rate():.0%} ({len(report.cases)} cases, {report.wall_s:.1f}s)"
+        )
         for case in report.cases:
             mark = "✓" if case.passed else "✗"
             lines.append(f"  - {mark} {case.case_id}: {case.detail}")

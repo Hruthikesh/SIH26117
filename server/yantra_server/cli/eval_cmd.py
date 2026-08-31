@@ -123,8 +123,10 @@ def eval_run(
     chosen = suites or ALL_SUITES
     unknown = [s for s in chosen if s not in ALL_SUITES]
     if unknown:
-        typer.secho(f"unknown suite(s): {', '.join(unknown)} (have {', '.join(ALL_SUITES)})",
-                    fg=typer.colors.RED)
+        typer.secho(
+            f"unknown suite(s): {', '.join(unknown)} (have {', '.join(ALL_SUITES)})",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(2)
     code = asyncio.run(_run(loaded, chosen, write_doc, out))
     raise typer.Exit(code)
@@ -144,14 +146,18 @@ def eval_report(
     db = _open_db(loaded)
     with db.session() as s:
         runs = list(
-            s.execute(select(EvalRunRow).order_by(EvalRunRow.started_at.desc()).limit(limit)).scalars()
+            s.execute(
+                select(EvalRunRow).order_by(EvalRunRow.started_at.desc()).limit(limit)
+            ).scalars()
         )
         if not runs:
             typer.echo("no eval runs recorded yet — run `yantra eval run`")
             return
         for run in runs:
             results = list(
-                s.execute(select(EvalResultRow).where(EvalResultRow.eval_run_id == run.id)).scalars()
+                s.execute(
+                    select(EvalResultRow).where(EvalResultRow.eval_run_id == run.id)
+                ).scalars()
             )
             passed = sum(1 for r in results if r.passed)
             rate = passed / len(results) if results else 0.0
@@ -184,7 +190,9 @@ async def _tune_retrieval(loaded: LoadedConfig, out_adr: bool) -> int:
     state.bus.bind_loop(asyncio.get_running_loop())
     await state.supervisor.start_all()
     if state.knowledge is None:
-        typer.secho("knowledge plane unavailable (install the 'knowledge' extra)", fg=typer.colors.RED)
+        typer.secho(
+            "knowledge plane unavailable (install the 'knowledge' extra)", fg=typer.colors.RED
+        )
         return 2
     collection = "tune_retrieval"
     base = loaded.assets_dir / "corpus" / "generated" / "small"

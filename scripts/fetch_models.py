@@ -38,10 +38,16 @@ HUB: dict[str, tuple[str, str | None]] = {
     "gpt-oss-120b": ("openai/gpt-oss-120b", None),
     "Mistral-Small-4-119B-NVFP4": ("mistralai/Mistral-Small-4-119B-NVFP4", None),
     "Qwen3-Embedding-0.6B": ("Qwen/Qwen3-Embedding-0.6B", None),
-    "Qwen3-Embedding-0.6B-Q8_0.gguf": ("Qwen/Qwen3-Embedding-0.6B-GGUF", "Qwen3-Embedding-0.6B-Q8_0.gguf"),
+    "Qwen3-Embedding-0.6B-Q8_0.gguf": (
+        "Qwen/Qwen3-Embedding-0.6B-GGUF",
+        "Qwen3-Embedding-0.6B-Q8_0.gguf",
+    ),
     "Qwen3-Embedding-4B": ("Qwen/Qwen3-Embedding-4B", None),
     "Qwen3-Reranker-0.6B": ("Qwen/Qwen3-Reranker-0.6B", None),
-    "Qwen3-Reranker-0.6B-Q8_0.gguf": ("Qwen/Qwen3-Reranker-0.6B-GGUF", "Qwen3-Reranker-0.6B-Q8_0.gguf"),
+    "Qwen3-Reranker-0.6B-Q8_0.gguf": (
+        "Qwen/Qwen3-Reranker-0.6B-GGUF",
+        "Qwen3-Reranker-0.6B-Q8_0.gguf",
+    ),
     "Qwen3-VL-Embedding-2B": ("Qwen/Qwen3-VL-Embedding-2B", None),
     "Qwen3-VL-Reranker-2B": ("Qwen/Qwen3-VL-Reranker-2B", None),
     "PaddleOCR-VL-1.6": ("PaddlePaddle/PaddleOCR-VL-1.6", None),
@@ -127,7 +133,9 @@ def verify(dest: Path) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", help="Fetch every model the profile needs")
-    parser.add_argument("--model", action="append", default=[], help="Fetch one model id (repeatable)")
+    parser.add_argument(
+        "--model", action="append", default=[], help="Fetch one model id (repeatable)"
+    )
     parser.add_argument("--dest", type=Path, default=REPO_ROOT / "models" / "weights")
     parser.add_argument("--verify", action="store_true", help="Offline integrity check only")
     args = parser.parse_args()

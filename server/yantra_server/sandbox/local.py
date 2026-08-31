@@ -71,13 +71,27 @@ class LocalSandbox(Sandbox):
 
 def shell_argv(command: str) -> list[str]:
     """Portable shell invocation: bash where present (Git Bash on Windows), else cmd/sh."""
+    import os
     import shutil
 
     bash = shutil.which("bash")
+    if os.name == "nt" and bash and "windowsapps" in bash.lower():
+        # The Microsoft Store WSL launcher shadows Git Bash on PATH but runs commands in
+        # a different OS where Windows paths do not exist; use a real Git Bash instead.
+        bash = next(
+            (
+                candidate
+                for candidate in (
+                    os.path.expandvars(r"%ProgramFiles%\Git\bin\bash.exe"),
+                    os.path.expandvars(r"%ProgramFiles(x86)%\Git\bin\bash.exe"),
+                    os.path.expandvars(r"%LocalAppData%\Programs\Git\bin\bash.exe"),
+                )
+                if os.path.isfile(candidate)
+            ),
+            None,
+        )
     if bash:
         return [bash, "-c", command]
-    import os
-
     if os.name == "nt":
         return ["cmd", "/c", command]
     return ["/bin/sh", "-c", command]
