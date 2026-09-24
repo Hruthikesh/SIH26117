@@ -114,4 +114,7 @@ cd /opt/yantra-bundle && sudo bash install.sh --with-nftables
 | `scripts/` | demo, bundle, install, fetch_models, nftables, CI seal check |
 | `docs/` | Architecture, ADRs, runbook, seal & threat model, pitch script, build ledger |
 
-License: Apache-2.0. See `NOTICE.md` for bundled components.
+## License
+
+This project is developed and maintained by our team as part of the Smart India Hackathon.
+
